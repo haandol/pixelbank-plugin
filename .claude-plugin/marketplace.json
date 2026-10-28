@@ -1,0 +1,15 @@
+{
+  "name": "pixelbank",
+  "owner": {
+    "name": "Pixelbank",
+    "url": "https://www.pixelbankstudio.com"
+  },
+  "plugins": [
+    {
+      "name": "pixelbank",
+      "source": "./",
+      "description": "Create and reuse Pixelbank assets through MCP, with prepared web workspaces for visual editing.",
+      "version": "0.1.0"
+    }
+  ]
+}

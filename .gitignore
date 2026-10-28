@@ -1,0 +1,7 @@
+node_modules/
+.adr-review/
+.env
+.env.*
+!.env.example
+coverage/
+.DS_Store

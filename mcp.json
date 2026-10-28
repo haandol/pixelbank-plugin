@@ -1,0 +1,15 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "pixelbank": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/dist/index.js"
+      ],
+      "env": {
+        "PIXELBANK_AUTH_SCOPE": "codex"
+      }
+    }
+  }
+}

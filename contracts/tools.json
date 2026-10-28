@@ -1,0 +1,2593 @@
+{
+  "availability": "Use the authenticated tools/list response for actual availability and granted authority.",
+  "schema_version": 1,
+  "tools": [
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Submit one frame correction using its reviewed content revision and instruction; poll the returned job.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "animation_id": {
+                "type": "string"
+              },
+              "correction": {
+                "additionalProperties": false,
+                "properties": {
+                  "content_revision": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "reference": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "checksum_sha256": {
+                        "type": "string"
+                      },
+                      "content_type": {
+                        "type": "string"
+                      },
+                      "height": {
+                        "type": "integer"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "purpose": {
+                        "enum": [
+                          "workflow-input",
+                          "generation-base",
+                          "generation-guide",
+                          "generation-mask",
+                          "generation-object",
+                          "upscaling-input",
+                          "segmentation-input",
+                          "segmentation-cutout",
+                          "background-removal-input",
+                          "animation-start",
+                          "animation-end",
+                          "animation-reference"
+                        ],
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "type": "integer"
+                      },
+                      "width": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "purpose",
+                      "content_type",
+                      "size_bytes",
+                      "checksum_sha256",
+                      "width",
+                      "height"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  }
+                },
+                "required": [
+                  "prompt",
+                  "content_revision"
+                ],
+                "type": "object"
+              },
+              "frame_index": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "animation_id",
+              "frame_index",
+              "correction"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "operation_key",
+          "maximum_credits"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_correct_animation_frame",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Start a food promotion, product-background or banner workflow. Starting does not process images.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "definition_key": {
+            "enum": [
+              "food",
+              "product",
+              "banner"
+            ],
+            "type": "string"
+          },
+          "operation_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition_key",
+          "operation_key"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_create_workflow",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Delete the exact owned animation only after the creator explicitly requests deletion.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "confirmed"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_delete_animation",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Delete the exact owned image only when the creator explicitly requested deletion. This affects the global library.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "additionalProperties": false,
+            "properties": {
+              "filename": {
+                "type": "string"
+              },
+              "namespace": {
+                "enum": [
+                  "workflow",
+                  "background",
+                  "segmentation",
+                  "generation",
+                  "upscaling"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "namespace",
+              "filename"
+            ],
+            "type": "object"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "asset",
+          "confirmed"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_delete_asset",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Submit an animation using owned uploaded references and a motion prompt; poll the returned job identity.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "end_image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "options": {
+                "additionalProperties": false,
+                "properties": {
+                  "fps": {
+                    "type": "integer"
+                  },
+                  "frame_size": {
+                    "type": "integer"
+                  },
+                  "grid_cols": {
+                    "type": "integer"
+                  },
+                  "grid_rows": {
+                    "type": "integer"
+                  },
+                  "loop": {
+                    "type": "boolean"
+                  },
+                  "num_frames": {
+                    "type": "integer"
+                  },
+                  "output_mode": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "prompt",
+                  "num_frames",
+                  "frame_size",
+                  "grid_cols",
+                  "grid_rows",
+                  "fps",
+                  "loop"
+                ],
+                "type": "object"
+              },
+              "start_image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "start_image",
+              "end_image",
+              "options"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "operation_key",
+          "maximum_credits"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_generate_animation",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Generate from fully prepared images, roles, guides and masks. Prepare the Pixelbank web workspace when layers need visual composition.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "guide_image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "images": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "checksum_sha256": {
+                      "type": "string"
+                    },
+                    "content_type": {
+                      "type": "string"
+                    },
+                    "height": {
+                      "type": "integer"
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "purpose": {
+                      "enum": [
+                        "workflow-input",
+                        "generation-base",
+                        "generation-guide",
+                        "generation-mask",
+                        "generation-object",
+                        "upscaling-input",
+                        "segmentation-input",
+                        "segmentation-cutout",
+                        "background-removal-input",
+                        "animation-start",
+                        "animation-end",
+                        "animation-reference"
+                      ],
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "type": "integer"
+                    },
+                    "width": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "purpose",
+                    "content_type",
+                    "size_bytes",
+                    "checksum_sha256",
+                    "width",
+                    "height"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "mask_image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "options": {
+                "additionalProperties": false,
+                "properties": {
+                  "annotation_manifest": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "aspect_ratio": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "guidance_scale": {
+                    "type": [
+                      "null",
+                      "number"
+                    ]
+                  },
+                  "image_size": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "negative_prompt": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "num_inference_steps": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "object_names": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "object_placements": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "quality": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "raw_prompt": {
+                    "type": "boolean"
+                  },
+                  "seed": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "strength": {
+                    "type": [
+                      "null",
+                      "number"
+                    ]
+                  },
+                  "style_preset": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                },
+                "required": [
+                  "prompt",
+                  "negative_prompt",
+                  "strength",
+                  "guidance_scale",
+                  "num_inference_steps",
+                  "seed",
+                  "style_preset",
+                  "aspect_ratio",
+                  "object_names",
+                  "object_placements",
+                  "raw_prompt",
+                  "annotation_manifest",
+                  "image_size",
+                  "quality"
+                ],
+                "type": "object"
+              },
+              "save_results": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "images",
+              "guide_image",
+              "mask_image",
+              "options",
+              "save_results"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "operation_key",
+          "maximum_credits"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_generate_image",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read display information, credits and available free uses for the connected Pixelbank account.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "name": "pixelbank_get_account",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read an owned animation, current content revision, frames and download references.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_get_animation",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read an owned image's dimensions, provenance, resized preview and original download reference.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "namespace": {
+            "enum": [
+              "workflow",
+              "background",
+              "segmentation",
+              "generation",
+              "upscaling"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "filename"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_get_asset",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read an owned image-generation, animation or upscaling job and its actual result or failure.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_get_job",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Inspect selected image assets and attempts in a supported saved workflow after MCP or web work.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_get_workflow",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read an owned prepared workspace and its current web URL. Opening is handled by the installed bridge.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "workspace_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_get_workspace",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Issue a purpose-bound direct image upload. The local upload helper consumes this ticket without putting credentials in the conversation.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum_sha256": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "purpose": {
+            "enum": [
+              "workflow-input",
+              "generation-base",
+              "generation-guide",
+              "generation-mask",
+              "generation-object",
+              "upscaling-input",
+              "segmentation-input",
+              "segmentation-cutout",
+              "background-removal-input",
+              "animation-start",
+              "animation-end",
+              "animation-reference"
+            ],
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "purpose",
+          "content_type",
+          "size_bytes",
+          "checksum_sha256",
+          "width",
+          "height"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_issue_upload",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read active animation jobs, including frame corrections. Acceptance is not completion.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "name": "pixelbank_list_animation_jobs",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Browse owned saved animations with cursor pagination.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "name": "pixelbank_list_animations",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Browse one owned image-library namespace with cursor pagination and an optional tag filter.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "namespace": {
+            "enum": [
+              "workflow",
+              "background",
+              "segmentation",
+              "generation",
+              "upscaling"
+            ],
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_list_assets",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List saved image workflows and the supported food, product and banner definitions.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "name": "pixelbank_list_workflows",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Prepare owned images, layer settings and a prompt for visual editing in Pixelbank. No image processing or workflow transition starts.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "canvas": {
+            "additionalProperties": false,
+            "properties": {
+              "framing": {
+                "type": "string"
+              },
+              "height": {
+                "type": "integer"
+              },
+              "width": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          },
+          "layers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "asset": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "filename": {
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "enum": [
+                        "workflow",
+                        "background",
+                        "segmentation",
+                        "generation",
+                        "upscaling"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "namespace",
+                    "filename"
+                  ],
+                  "type": "object"
+                },
+                "height_percent": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "locked": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "rotation_degrees": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "visible": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "width_percent": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "x_percent": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "y_percent": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                }
+              },
+              "required": [
+                "asset"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "tool": {
+            "enum": [
+              "segment",
+              "generation"
+            ],
+            "type": "string"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "revision": {
+                "type": "integer"
+              },
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key",
+              "revision"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "operation_key",
+          "tool",
+          "layers"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_prepare_workspace",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read the current enlargement dimensions, credit amount and quote fingerprint without starting work.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "factor": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "source": {
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "properties": {
+                  "asset": {
+                    "type": "null"
+                  },
+                  "upload": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "upload"
+                ]
+              },
+              {
+                "properties": {
+                  "asset": {
+                    "type": "object"
+                  },
+                  "original_asset": {
+                    "type": "null"
+                  },
+                  "upload": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "asset"
+                ]
+              }
+            ],
+            "properties": {
+              "asset": {
+                "additionalProperties": false,
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "namespace": {
+                    "enum": [
+                      "generation",
+                      "background",
+                      "segmentation",
+                      "upscaling"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "namespace",
+                  "filename"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "original_asset": {
+                "additionalProperties": false,
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "namespace": {
+                    "enum": [
+                      "generation",
+                      "background",
+                      "segmentation",
+                      "upscaling"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "namespace",
+                  "filename"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "upload": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "mode",
+          "source",
+          "factor"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_quote_upscaling",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Recompose the saved GIF from enabled frames for free. Supply the reviewed content revision.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "content_revision": {
+                "type": "string"
+              },
+              "disabled_indices": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "disabled_indices"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "request"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_recompose_animation",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Remove an image background and save the transparent result. Use the background-removal-input upload purpose. Retain the operation key and approved maximum credits.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "operation_key",
+          "maximum_credits"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_remove_background",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Save an already prepared transparent cutout using a segmentation-cutout upload. This does not run SAM or consume credits.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "image": {
+            "additionalProperties": false,
+            "properties": {
+              "checksum_sha256": {
+                "type": "string"
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "height": {
+                "type": "integer"
+              },
+              "key": {
+                "type": "string"
+              },
+              "purpose": {
+                "enum": [
+                  "workflow-input",
+                  "generation-base",
+                  "generation-guide",
+                  "generation-mask",
+                  "generation-object",
+                  "upscaling-input",
+                  "segmentation-input",
+                  "segmentation-cutout",
+                  "background-removal-input",
+                  "animation-start",
+                  "animation-end",
+                  "animation-reference"
+                ],
+                "type": "string"
+              },
+              "size_bytes": {
+                "type": "integer"
+              },
+              "width": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "key",
+              "purpose",
+              "content_type",
+              "size_bytes",
+              "checksum_sha256",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_save_cutout",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Persist a verified workflow-input upload as an owned source for prepared web workspaces. No image-processing job starts.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum_sha256": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "workflow-input",
+              "generation-base",
+              "generation-guide",
+              "generation-mask",
+              "generation-object",
+              "upscaling-input",
+              "segmentation-input",
+              "segmentation-cutout",
+              "background-removal-input",
+              "animation-start",
+              "animation-end",
+              "animation-reference"
+            ],
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "purpose",
+          "content_type",
+          "size_bytes",
+          "checksum_sha256",
+          "width",
+          "height"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_save_source",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Run SAM rectangles in original image pixels (x, y, width, height); points must be empty. Use a segmentation-input upload. Use the prepared web workspace for interactive mask refinement.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              },
+              "selection": {
+                "additionalProperties": false,
+                "properties": {
+                  "image": {
+                    "additionalProperties": {
+                      "type": "integer"
+                    },
+                    "type": "object"
+                  },
+                  "inverted_segment_ids": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "points": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "label": {
+                          "type": "integer"
+                        },
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "label"
+                      ],
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "rectangles": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "height": {
+                          "type": "number"
+                        },
+                        "width": {
+                          "type": "number"
+                        },
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "width",
+                        "height"
+                      ],
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "selected_segment_ids": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  }
+                },
+                "required": [
+                  "image",
+                  "points",
+                  "rectangles",
+                  "selected_segment_ids",
+                  "inverted_segment_ids"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "image",
+              "selection"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "operation_key",
+          "maximum_credits"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_segment",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Run SAM rectangles in original image pixels (x, y, width, height) and save the cutout. Use a segmentation-input upload and an empty points list.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              },
+              "selection": {
+                "additionalProperties": false,
+                "properties": {
+                  "image": {
+                    "additionalProperties": {
+                      "type": "integer"
+                    },
+                    "type": "object"
+                  },
+                  "inverted_segment_ids": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "points": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "label": {
+                          "type": "integer"
+                        },
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "label"
+                      ],
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "rectangles": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "height": {
+                          "type": "number"
+                        },
+                        "width": {
+                          "type": "number"
+                        },
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "width",
+                        "height"
+                      ],
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "selected_segment_ids": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  }
+                },
+                "required": [
+                  "image",
+                  "points",
+                  "rectangles",
+                  "selected_segment_ids",
+                  "inverted_segment_ids"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "image",
+              "selection"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "operation_key",
+          "maximum_credits"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_segment_and_save",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Update tags on the selected owned animation.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "tags"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "request"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_update_animation_tags",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Update tags on the explicitly selected owned image.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "additionalProperties": false,
+            "properties": {
+              "filename": {
+                "type": "string"
+              },
+              "namespace": {
+                "enum": [
+                  "workflow",
+                  "background",
+                  "segmentation",
+                  "generation",
+                  "upscaling"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "namespace",
+              "filename"
+            ],
+            "type": "object"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "required": [
+          "asset",
+          "tags"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_update_asset_tags",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Apply an explicit action to a supported image workflow using its original action ID and expected revision.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "additionalProperties": false,
+            "properties": {
+              "action_id": {
+                "type": "string"
+              },
+              "asset": {
+                "additionalProperties": false,
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "namespace": {
+                    "enum": [
+                      "workflow",
+                      "background",
+                      "segmentation",
+                      "generation",
+                      "upscaling"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "namespace",
+                  "filename"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "asset_id": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "activate",
+                  "attach",
+                  "select",
+                  "detach",
+                  "next",
+                  "skip",
+                  "complete",
+                  "pause",
+                  "resume",
+                  "reopen"
+                ],
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action_id",
+              "revision",
+              "kind",
+              "step_key"
+            ],
+            "type": "object"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "action"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_update_workflow",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Submit an image enlargement with the exact confirmed quote and an approved credit maximum.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "request": {
+            "additionalProperties": false,
+            "properties": {
+              "factor": {
+                "type": "integer"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "quote": {
+                "additionalProperties": false,
+                "properties": {
+                  "credit_cost": {
+                    "type": "integer"
+                  },
+                  "fingerprint": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "fingerprint",
+                  "credit_cost"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "additionalProperties": false,
+                "oneOf": [
+                  {
+                    "properties": {
+                      "asset": {
+                        "type": "null"
+                      },
+                      "upload": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "upload"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "asset": {
+                        "type": "object"
+                      },
+                      "original_asset": {
+                        "type": "null"
+                      },
+                      "upload": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "asset"
+                    ]
+                  }
+                ],
+                "properties": {
+                  "asset": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "filename": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "enum": [
+                          "generation",
+                          "background",
+                          "segmentation",
+                          "upscaling"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "filename"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "original_asset": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "filename": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "enum": [
+                          "generation",
+                          "background",
+                          "segmentation",
+                          "upscaling"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "filename"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "upload": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "checksum_sha256": {
+                        "type": "string"
+                      },
+                      "content_type": {
+                        "type": "string"
+                      },
+                      "height": {
+                        "type": "integer"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "purpose": {
+                        "enum": [
+                          "workflow-input",
+                          "generation-base",
+                          "generation-guide",
+                          "generation-mask",
+                          "generation-object",
+                          "upscaling-input",
+                          "segmentation-input",
+                          "segmentation-cutout",
+                          "background-removal-input",
+                          "animation-start",
+                          "animation-end",
+                          "animation-reference"
+                        ],
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "type": "integer"
+                      },
+                      "width": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "purpose",
+                      "content_type",
+                      "size_bytes",
+                      "checksum_sha256",
+                      "width",
+                      "height"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "mode",
+              "source",
+              "factor",
+              "quote"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "operation_key",
+          "maximum_credits"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_upscale_image",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    }
+  ]
+}

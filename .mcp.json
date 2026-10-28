@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "pixelbank": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/index.js"
+      ],
+      "env": {
+        "PIXELBANK_AUTH_SCOPE": "claude"
+      }
+    }
+  }
+}
