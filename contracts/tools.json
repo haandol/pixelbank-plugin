@@ -361,13 +361,7 @@
                   }
                 },
                 "required": [
-                  "prompt",
-                  "num_frames",
-                  "frame_size",
-                  "grid_cols",
-                  "grid_rows",
-                  "fps",
-                  "loop"
+                  "prompt"
                 ],
                 "type": "object"
               },
@@ -424,7 +418,6 @@
             },
             "required": [
               "start_image",
-              "end_image",
               "options"
             ],
             "type": "object"
@@ -730,20 +723,7 @@
                   }
                 },
                 "required": [
-                  "prompt",
-                  "negative_prompt",
-                  "strength",
-                  "guidance_scale",
-                  "num_inference_steps",
-                  "seed",
-                  "style_preset",
-                  "aspect_ratio",
-                  "object_names",
-                  "object_placements",
-                  "raw_prompt",
-                  "annotation_manifest",
-                  "image_size",
-                  "quality"
+                  "prompt"
                 ],
                 "type": "object"
               },
@@ -752,11 +732,7 @@
               }
             },
             "required": [
-              "images",
-              "guide_image",
-              "mask_image",
-              "options",
-              "save_results"
+              "options"
             ],
             "type": "object"
           },

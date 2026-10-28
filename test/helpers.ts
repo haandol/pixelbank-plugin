@@ -45,7 +45,7 @@ export async function mock() {
   const hooks: { beforePreviousRevocation?: () => Promise<void>; discovery?: Record<string, unknown>; afterToken?: () => void;
     rpc?: (body: any, req: IncomingMessage, res: ServerResponse) => Promise<boolean> | boolean;
     upload?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
-    callbackIssuer?: string; idClaims?: Record<string, unknown>; idIssuedAt?: number; idExpiresAt?: number;
+    callbackIssuer?: string; idClaims?: Record<string, unknown>; idIssuedAt?: number; idExpiresAt?: number; refreshIdSubject?: string;
   } = {};
   async function identity(nonce?: string, subject = 'test-user') {
     return new SignJWT({ token_use: 'id', ...(nonce ? { nonce: flags.badNonce ? 'incorrect' : nonce } : {}), ...hooks.idClaims })
@@ -111,7 +111,7 @@ export async function mock() {
         const includeRefresh = !flags.missingRefresh && (nonce !== undefined || flags.rotation);
         if (includeRefresh) { refreshTokens.add(rt); refreshMeta.set(rt, { subject, family }); }
         issued.push(at, rt);
-        send(200, { access_token: at, ...(includeRefresh ? { refresh_token: rt } : {}), id_token: await identity(nonce, subject), expires_in: flags.malformedToken ? 'bad' : 3600, token_type: 'Bearer' });
+        send(200, { access_token: at, ...(includeRefresh ? { refresh_token: rt } : {}), id_token: await identity(nonce, nonce === undefined ? hooks.refreshIdSubject ?? subject : subject), expires_in: flags.malformedToken ? 'bad' : 3600, token_type: 'Bearer' });
         hooks.afterToken?.(); return;
       }
       if (url.pathname === '/revoke') {

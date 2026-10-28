@@ -82,6 +82,27 @@ for (const status of [429, 503]) test(`HTTP ${status} preserves Retry-After and 
   assert.equal(m.requests.length, count);
 });
 
+for (const protocolVersion of ['2026-07-28', '2025-11-25'] as const) test(`${protocolVersion} retry aliases preserve the largest bounded delay`, async t => {
+  const { m, token } = await fixture(t); m.rpc.protocolVersion = protocolVersion;
+  for (const form of ['structured', 'text', 'http']) {
+    m.flags.apiStatus = form === 'http' ? 429 : 200;
+    m.flags.apiRetryAfter = form === 'http' ? '41' : undefined;
+    const envelope = { error: { code: 'RATE_LIMITED', retryAfterSeconds: 43, retry_after_seconds: 47, retry_after: 53,
+      message: 'provider-secret', unknown: 'provider-secret' } };
+    m.flags.apiBody = envelope;
+    m.rpc.result = form === 'text' ? { ...(protocolVersion === '2026-07-28' ? { resultType: 'complete' } : {}),
+      isError: true, content: [{ type: 'text', text: JSON.stringify(envelope) }] } : undefined;
+    await assert.rejects(callRemoteTool(m.base, token, tool.name, original, { protocolVersion }), error => {
+      const output = safeError(error).error;
+      assert.equal(output.code, 'RATE_LIMITED'); assert.equal(output.retryAfterSeconds, 53, form);
+      assert.deepEqual(Object.keys(output).sort(), ['code', 'message', 'retryAfterSeconds']);
+      assert.ok(!JSON.stringify(output).includes('provider-secret'));
+      return true;
+    });
+  }
+  assert.equal(m.rpcCalls().length, 3);
+});
+
 test('bounded HTTP errors preserve fixed status semantics without reflecting provider text', async t => {
   const { m, token } = await fixture(t);
   for (const [status, code] of [[403, 'CONNECTION_FORBIDDEN'], [502, 'API_ERROR']] as const) {
@@ -116,6 +137,25 @@ test('structured errors cannot smuggle messages or signed tickets into model-vis
   const { m, token } = await fixture(t);
   m.flags.apiBody = { error: { code: 'bad secret https://s3.amazonaws.com/?X-Amz-Signature=secret', message: 'copy tokens' } };
   await assert.rejects(callRemoteTool(m.base, token, tool.name, original), (error: SafeError) => { assert.equal(error.code, 'API_ERROR'); assert.ok(!JSON.stringify(safeError(error)).includes('secret')); return true; });
+});
+
+for (const protocolVersion of ['2026-07-28', '2025-11-25'] as const) test(`${protocolVersion} remote errors retain typed consent and retry details across response forms`, async t => {
+  const { m, token } = await fixture(t); m.rpc.protocolVersion = protocolVersion;
+  const envelope = { error: { code: 'FREE_TRIAL_UNAVAILABLE', credit_cost: 5, retry_same_command: false,
+    message: 'provider-secret', unknown: 'provider-secret', upload_url: 'https://fixture/?X-Amz-Signature=provider-secret' } };
+  for (const form of ['structured', 'text', 'http']) {
+    m.flags.apiStatus = form === 'http' ? 428 : 200; m.flags.apiBody = envelope;
+    m.rpc.result = form === 'text' ? { ...(protocolVersion === '2026-07-28' ? { resultType: 'complete' } : {}),
+      isError: true, content: [{ type: 'text', text: JSON.stringify(envelope) }] } : undefined;
+    await assert.rejects(callRemoteTool(m.base, token, tool.name, original, { protocolVersion }), error => {
+      assert.deepEqual(safeError(error), { error: { code: 'FREE_TRIAL_UNAVAILABLE',
+        message: 'Free-use availability could not be confirmed. Paid fallback requires separate consent for this operation.',
+        credit_cost: 5, retry_same_command: false } }, form);
+      return true;
+    });
+  }
+  assert.equal(m.rpcCalls().length, 3);
+  for (const request of m.rpcCalls()) assert.deepEqual((request.body as any).params.arguments, original);
 });
 
 test('SSE delivers progress and a final result before the HTTP stream closes', async t => {

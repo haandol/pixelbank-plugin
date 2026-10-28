@@ -1,14 +1,22 @@
 export class SafeError extends Error {
-  constructor(public code: string, message: string, public retryAfterSeconds?: number) { super(message); }
+  readonly credit_cost?: number;
+  readonly retry_same_command?: boolean;
+  constructor(public code: string, message: string, public retryAfterSeconds?: number, details: Record<string, unknown> = {}) {
+    super(message);
+    if (typeof details.credit_cost === 'number' && Number.isFinite(details.credit_cost) && details.credit_cost >= 0) this.credit_cost = details.credit_cost;
+    if (typeof details.retry_same_command === 'boolean') this.retry_same_command = details.retry_same_command;
+  }
 }
 
 export const uncertainOutcome = 'A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in Pixelbank first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.';
 export const authCleanup = 'Run pixelbank_disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the creator still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.';
 export const storageRecovery = 'Ask the local operator to restore safe access while preserving credential and lock files, which may retain pending revocation. Do not copy tokens, change the credential scope to bypass cleanup, or keep retrying before repair.';
 
-export function safeError(error: unknown): { error: { code: string; message: string; retryAfterSeconds?: number } } {
+export function safeError(error: unknown): { error: { code: string; message: string; retryAfterSeconds?: number; credit_cost?: number; retry_same_command?: boolean } } {
   if (error instanceof SafeError) return { error: { code: error.code, message: error.message,
-    ...(error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds }) } };
+    ...(error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
+    ...(error.credit_cost === undefined ? {} : { credit_cost: error.credit_cost }),
+    ...(error.retry_same_command === undefined ? {} : { retry_same_command: error.retry_same_command }) } };
   return { error: { code: 'INTERNAL_ERROR', message: `The plugin could not complete the operation for an unclassified reason. Ask the local operator to inspect the plugin before retrying. ${uncertainOutcome} Preserve credential and lock files; use pixelbank_disconnect for pending cleanup when storage is usable.` } };
 }
 

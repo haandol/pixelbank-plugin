@@ -8,19 +8,21 @@ const messages: Record<string, string> = {
  CREDIT_PRICE_CHANGED: 'The current price exceeds the approved amount. Review a new quote before authorizing execution.',
  MCP_APPROVAL_INVALID: 'Review and authorize the exact operation and credit amount before execution.',
  IDEMPOTENCY_KEY_CONFLICT: 'This operation key belongs to different inputs. Recover the original request and result.',
+ ALREADY_PROCESSED: 'This operation is already recorded and was not run again. Check available results or the workflow in Pixelbank. Do not automatically resubmit with a new operation key; a new operation requires explicit user intent.',
  WORKFLOW_CONFLICT: 'The workflow changed. Reload its acknowledged state before choosing the next action.',
  WORKSPACE_CONFLICT: 'This workspace preparation conflicts with an existing request or newer workflow revision.',
  WORKSPACE_UNAVAILABLE: 'The prepared workspace or one of its owned source assets is unavailable.',
 };
-export function apiError(status: number, code: string, headerPause?: number, structuredPause?: unknown): SafeError {
+export function apiError(status: number, code: string, headerPause?: number, structuredPause?: unknown, details: Record<string, unknown> = {}): SafeError {
  if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code)) code = 'API_ERROR';
  if (status === 401) return new SafeError('AUTH_REQUIRED', messages.AUTH_REQUIRED!);
  if (status === 403 && code === 'API_ERROR') code = 'CONNECTION_FORBIDDEN';
  if ((status === 429 || status === 503) && code === 'API_ERROR') code = status === 429 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE';
- const error = new SafeError(code, messages[code] ?? `Pixelbank could not complete the operation (${code}). ${uncertainOutcome}`);
+ const error = new SafeError(code, messages[code] ?? `Pixelbank could not complete the operation (${code}). ${uncertainOutcome}`, undefined, details);
  if (status === 429 || status === 503 || code === 'RATE_LIMITED') {
   const valid = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 86400;
-  error.retryAfterSeconds = Math.max(valid(headerPause) ? headerPause : 0, valid(structuredPause) ? structuredPause : 0) || 30;
+  const delays = [headerPause, structuredPause, details.retry_after_seconds, details.retry_after];
+  error.retryAfterSeconds = Math.max(0, ...delays.filter(valid)) || 30;
  }
  return error;
 }

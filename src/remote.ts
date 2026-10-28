@@ -48,12 +48,12 @@ async function withRemote<T>(base: string, token: () => Promise<string>, action:
         try { body = await readBoundedBody(response.body); }
         catch (error) { if (response.ok) throw error; body = { kind: 'too-large' }; }
         if (!response.ok) {
-          let code = 'API_ERROR', pause: unknown;
+          let code = 'API_ERROR', pause: unknown, detail: Record<string, unknown> = {};
           try {
-            const detail = object(object(JSON.parse(body.kind === 'complete' ? body.text : '')).error);
+            detail = object(object(JSON.parse(body.kind === 'complete' ? body.text : '')).error);
             if (typeof detail.code === 'string') { code = detail.code; pause = detail.retryAfterSeconds; }
           } catch { /* Untrusted error bodies never become model-visible diagnostics. */ }
-          throw apiError(response.status, code, response.headers.has('retry-after') ? retryAfterSeconds(response.headers.get('retry-after')) : undefined, pause);
+          throw apiError(response.status, code, response.headers.has('retry-after') ? retryAfterSeconds(response.headers.get('retry-after')) : undefined, pause, detail);
         }
         if (body.kind !== 'complete') throw invalid();
         return new Response(body.text || null, { status: response.status, headers: response.headers });
@@ -96,7 +96,7 @@ export async function callRemoteTool(base: string, token: () => Promise<string>,
     const envelope = object(data);
     if (result.isError || Object.hasOwn(envelope, 'error')) {
       const error = object(envelope.error);
-      throw apiError(200, typeof error.code === 'string' ? error.code : 'API_ERROR', undefined, error.retryAfterSeconds);
+      throw apiError(200, typeof error.code === 'string' ? error.code : 'API_ERROR', undefined, error.retryAfterSeconds, error);
     }
     if (!Object.hasOwn(envelope, 'data')) throw new SafeError('INVALID_RESPONSE', `The creative result is missing its data envelope. ${uncertainOutcome}`);
     return envelope;

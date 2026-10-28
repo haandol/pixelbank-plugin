@@ -24587,13 +24587,17 @@ var DEFAULT_MAX_REQUEST_BODY_SIZE = 4 * 1024 * 1024;
 
 // src/errors.ts
 var SafeError = class extends Error {
-  constructor(code, message2, retryAfterSeconds2) {
+  constructor(code, message2, retryAfterSeconds2, details = {}) {
     super(message2);
     this.code = code;
     this.retryAfterSeconds = retryAfterSeconds2;
+    if (typeof details.credit_cost === "number" && Number.isFinite(details.credit_cost) && details.credit_cost >= 0) this.credit_cost = details.credit_cost;
+    if (typeof details.retry_same_command === "boolean") this.retry_same_command = details.retry_same_command;
   }
   code;
   retryAfterSeconds;
+  credit_cost;
+  retry_same_command;
 };
 var uncertainOutcome = "A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in Pixelbank first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.";
 var authCleanup = "Run pixelbank_disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the creator still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.";
@@ -24602,7 +24606,9 @@ function safeError(error2) {
   if (error2 instanceof SafeError) return { error: {
     code: error2.code,
     message: error2.message,
-    ...error2.retryAfterSeconds === void 0 ? {} : { retryAfterSeconds: error2.retryAfterSeconds }
+    ...error2.retryAfterSeconds === void 0 ? {} : { retryAfterSeconds: error2.retryAfterSeconds },
+    ...error2.credit_cost === void 0 ? {} : { credit_cost: error2.credit_cost },
+    ...error2.retry_same_command === void 0 ? {} : { retry_same_command: error2.retry_same_command }
   } };
   return { error: { code: "INTERNAL_ERROR", message: `The plugin could not complete the operation for an unclassified reason. Ask the local operator to inspect the plugin before retrying. ${uncertainOutcome} Preserve credential and lock files; use pixelbank_disconnect for pending cleanup when storage is usable.` } };
 }
@@ -24833,19 +24839,21 @@ var messages = {
   CREDIT_PRICE_CHANGED: "The current price exceeds the approved amount. Review a new quote before authorizing execution.",
   MCP_APPROVAL_INVALID: "Review and authorize the exact operation and credit amount before execution.",
   IDEMPOTENCY_KEY_CONFLICT: "This operation key belongs to different inputs. Recover the original request and result.",
+  ALREADY_PROCESSED: "This operation is already recorded and was not run again. Check available results or the workflow in Pixelbank. Do not automatically resubmit with a new operation key; a new operation requires explicit user intent.",
   WORKFLOW_CONFLICT: "The workflow changed. Reload its acknowledged state before choosing the next action.",
   WORKSPACE_CONFLICT: "This workspace preparation conflicts with an existing request or newer workflow revision.",
   WORKSPACE_UNAVAILABLE: "The prepared workspace or one of its owned source assets is unavailable."
 };
-function apiError(status, code, headerPause, structuredPause) {
+function apiError(status, code, headerPause, structuredPause, details = {}) {
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code)) code = "API_ERROR";
   if (status === 401) return new SafeError("AUTH_REQUIRED", messages.AUTH_REQUIRED);
   if (status === 403 && code === "API_ERROR") code = "CONNECTION_FORBIDDEN";
   if ((status === 429 || status === 503) && code === "API_ERROR") code = status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE";
-  const error2 = new SafeError(code, messages[code] ?? `Pixelbank could not complete the operation (${code}). ${uncertainOutcome}`);
+  const error2 = new SafeError(code, messages[code] ?? `Pixelbank could not complete the operation (${code}). ${uncertainOutcome}`, void 0, details);
   if (status === 429 || status === 503 || code === "RATE_LIMITED") {
     const valid = (n) => typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 86400;
-    error2.retryAfterSeconds = Math.max(valid(headerPause) ? headerPause : 0, valid(structuredPause) ? structuredPause : 0) || 30;
+    const delays = [headerPause, structuredPause, details.retry_after_seconds, details.retry_after];
+    error2.retryAfterSeconds = Math.max(0, ...delays.filter(valid)) || 30;
   }
   return error2;
 }
@@ -41450,16 +41458,16 @@ async function withRemote(base, token, action, options) {
           body = { kind: "too-large" };
         }
         if (!response.ok) {
-          let code = "API_ERROR", pause;
+          let code = "API_ERROR", pause, detail = {};
           try {
-            const detail = object2(object2(JSON.parse(body.kind === "complete" ? body.text : "")).error);
+            detail = object2(object2(JSON.parse(body.kind === "complete" ? body.text : "")).error);
             if (typeof detail.code === "string") {
               code = detail.code;
               pause = detail.retryAfterSeconds;
             }
           } catch {
           }
-          throw apiError(response.status, code, response.headers.has("retry-after") ? retryAfterSeconds(response.headers.get("retry-after")) : void 0, pause);
+          throw apiError(response.status, code, response.headers.has("retry-after") ? retryAfterSeconds(response.headers.get("retry-after")) : void 0, pause, detail);
         }
         if (body.kind !== "complete") throw invalid3();
         return new Response(body.text || null, { status: response.status, headers: response.headers });
@@ -41508,7 +41516,7 @@ async function callRemoteTool(base, token, name, input, options = {}) {
     const envelope = object2(data);
     if (result.isError || Object.hasOwn(envelope, "error")) {
       const error2 = object2(envelope.error);
-      throw apiError(200, typeof error2.code === "string" ? error2.code : "API_ERROR", void 0, error2.retryAfterSeconds);
+      throw apiError(200, typeof error2.code === "string" ? error2.code : "API_ERROR", void 0, error2.retryAfterSeconds, error2);
     }
     if (!Object.hasOwn(envelope, "data")) throw new SafeError("INVALID_RESPONSE", `The creative result is missing its data envelope. ${uncertainOutcome}`);
     return envelope;

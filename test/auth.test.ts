@@ -124,6 +124,35 @@ test('nonrotating refresh retains its refresh token; failed refresh disables lea
   assert.equal((await m.read())!.status, 'disabled');
 });
 
+test('signed refresh preserves the verified owner and original authorization horizon before a protected read', async t => {
+  const m = await mock(); t.after(() => m.close()); m.flags.subject = 'owned-refresh-user'; await m.login();
+  const before = (await m.read())!;
+  await m.store.withLock(async tx => { const value = (await tx.load())!; value.expiresAt = 0; await tx.save(value); });
+  await m.auth.request('GET', '/context');
+  const after = (await m.read())!;
+  assert.equal(after.status, 'active'); assert.equal(after.subject, before.subject);
+  assert.equal(after.connectionId, before.connectionId); assert.equal(after.refreshExpiresAt, before.refreshExpiresAt);
+  assert.notEqual(after.refreshToken, before.refreshToken); assert.equal(m.counts.refresh, 1);
+  const reads = m.requests.filter(request => request.path === '/v1/mcp/context');
+  assert.equal(reads.length, 1);
+  assert.equal(m.accessMeta.get(reads[0]!.token!.replace(/^Bearer /, ''))?.subject, before.subject);
+});
+
+test('a refresh ID token for another owner disables access and retains the rotated grant for cleanup', async t => {
+  const m = await mock(); t.after(() => m.close()); await m.login();
+  const before = (await m.read())!; m.hooks.refreshIdSubject = 'another-owner';
+  await m.store.withLock(async tx => { const value = (await tx.load())!; value.expiresAt = 0; await tx.save(value); });
+  await assert.rejects(m.auth.request('GET', '/context'), { code: 'INVALID_ID_TOKEN' });
+  const after = (await m.read())!;
+  assert.equal(after.status, 'disabled'); assert.equal(after.subject, before.subject);
+  assert.equal(after.connectionId, before.connectionId); assert.equal(after.refreshExpiresAt, before.refreshExpiresAt);
+  assert.deepEqual(after.cleanup, { backend: true, provider: true });
+  assert.notEqual(after.refreshToken, before.refreshToken); assert.ok(m.refreshTokens.has(after.refreshToken!));
+  await assert.rejects(m.auth.request('GET', '/context'), { code: 'AUTH_REQUIRED' });
+  assert.equal(m.requests.filter(request => request.path === '/v1/mcp/context').length, 0);
+  assert.equal(m.counts.refresh, 1); assert.equal(m.counts.exchange, 1); assert.equal(m.counts.register, 1);
+});
+
 test('disconnect disables credentials, preserves failed provider cleanup across restart, then removes secrets', async t => {
   const m = await mock(); t.after(() => m.close()); await m.login(); m.flags.providerFailure = true;
   const result = await m.auth.disconnect(); assert.equal(result.data.status, 'cleanup_pending');
