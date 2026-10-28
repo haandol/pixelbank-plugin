@@ -1,32 +1,20 @@
 {
-  "name": "pixelbank-mcp",
+  "name": "pixelbank-plugin-workspace",
   "version": "0.1.0",
   "private": true,
-  "description": "Pixelbank creative workflows through MCP and prepared web workspaces.",
   "type": "module",
+  "workspaces": [
+    "plugins/pixelbank"
+  ],
   "engines": {
     "node": ">=24 <25"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test --test-concurrency=1 test/*.test.ts",
-    "start": "node dist/index.js"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/client": "2.4.0",
-    "@modelcontextprotocol/core": "2.4.0",
-    "@modelcontextprotocol/server": "2.4.0",
-    "image-size": "2.0.4",
-    "jose": "6.2.12",
-    "proper-lockfile": "4.1.2",
-    "zod": "4.6.7"
-  },
-  "devDependencies": {
-    "@types/node": "24.10.1",
-    "@types/proper-lockfile": "4.1.4",
-    "esbuild": "0.28.1",
-    "tsx": "4.21.0",
-    "typescript": "6.0.3"
+    "build": "npm run build -w plugins/pixelbank",
+    "typecheck": "npm run typecheck -w plugins/pixelbank",
+    "test": "npm run test -w plugins/pixelbank",
+    "start": "npm run start -w plugins/pixelbank",
+    "validate": "node scripts/validate.mjs",
+    "check": "npm run validate && npm run typecheck && npm run build && npm test && npm run validate"
   }
 }

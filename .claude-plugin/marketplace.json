@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "pixelbank",
-      "source": "./",
+      "source": "./plugins/pixelbank",
       "description": "Create and reuse Pixelbank assets through MCP, with prepared web workspaces for visual editing.",
       "version": "0.1.0"
     }

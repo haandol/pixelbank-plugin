@@ -1,6 +1,12 @@
-# Pixelbank MCP contributor guide
+# Pixelbank Plugin contributor guide
 
 This repository owns the public installable MCP bridge, creative-workflow skill and public contracts. Pixelbank owns the remote service, identity, user assets and credits.
+
+- Follow the repository layout used by `encbird-plugin`: root marketplace entries select `plugins/pixelbank`, which is a self-contained installation with manifests, skills, contracts and the bundled MCP bridge.
+- Keep root and plugin READMEs focused on installation and usage. Put developer instructions in `docs/`; never include private service source or operational data there.
+- Keep the workspace, package, host manifests and marketplace versions aligned. A layout or naming correction does not require a version bump.
+- Use `npm run check` for manifest validation, typechecking, bundle generation and tests. The Dev Container provides the same Node 24 environment as CI.
+- Local commits do not authorize remote creation, renaming, pushing, releases or approval requests. Preserve all existing Git/security hooks.
 
 - Keep private service source, deployment secrets and user data out of this repository.
 - Follow the approved Pixelbank MCP contract; browser OAuth uses a dedicated public Cognito client and PKCE S256. Never accept a password or token in tool arguments.

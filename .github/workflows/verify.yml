@@ -12,13 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test
-      - name: Check committed bundle
-        run: git diff --exit-code -- dist
+      - name: Build the project verification image
+        run: docker build --tag pixelbank-plugin-check .devcontainer
+      - name: Verify the workspace and installation package
+        run: >-
+          docker run --rm --init --user "$(id -u):$(id -g)"
+          --volume "$GITHUB_WORKSPACE:/workspaces/pixelbank-plugin"
+          --env NPM_CONFIG_CACHE=/tmp/npm-cache
+          pixelbank-plugin-check sh -c
+          'npm ci --ignore-scripts --no-audit --no-fund && npm run check && git diff --exit-code -- plugins/pixelbank/dist'
