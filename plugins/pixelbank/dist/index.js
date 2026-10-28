@@ -43281,13 +43281,94 @@ async function uploadImage(auth2, base, input, signal) {
   return { data: { reference } };
 }
 
-// src/server.ts
-var authTools = [
-  { name: "pixelbank_upload_image", description: "Upload an explicitly selected local PNG, JPEG or WebP image to Pixelbank. Use workflow-input and save_source=true to prepare a persistent web-workspace source.", inputSchema: { type: "object", properties: { file_path: { type: "string" }, purpose: { type: "string", enum: [...UPLOAD_PURPOSES] }, save_source: { type: "boolean" } }, required: ["file_path", "purpose"], additionalProperties: false } },
-  { name: "pixelbank_connect", description: "Connect Pixelbank through browser sign-in, or check a sign-in already in progress.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
-  { name: "pixelbank_disconnect", description: "Revoke this Pixelbank connection and remove its local credentials. Accepted creative jobs retain their existing lifecycle.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
-  { name: "pixelbank_open_workspace", description: "Open an owned prepared Pixelbank workspace in the default browser. Opening applies initial settings and never starts paid processing.", inputSchema: { type: "object", properties: { workspace_id: { type: "string", pattern: "^[a-f0-9]{64}$" } }, required: ["workspace_id"], additionalProperties: false } }
+// src/catalog.ts
+var internalUploadTools = ["pixelbank_issue_upload", "pixelbank_save_source"];
+var localTools = [
+  {
+    name: "pixelbank_upload_image",
+    description: "Upload an explicitly selected local PNG, JPEG or WebP image to Pixelbank. Use workflow-input and save_source=true to prepare a persistent web-workspace source.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file_path: { type: "string" },
+        purpose: { type: "string", enum: [...UPLOAD_PURPOSES] },
+        save_source: { type: "boolean" }
+      },
+      required: ["file_path", "purpose"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "pixelbank_connect",
+    description: "Connect Pixelbank through browser sign-in, or check a sign-in already in progress.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "pixelbank_disconnect",
+    description: "Revoke this Pixelbank connection and remove its local credentials. Accepted creative jobs retain their existing lifecycle.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "pixelbank_open_workspace",
+    description: "Open an owned prepared Pixelbank workspace in the default browser. Opening applies initial settings and never starts paid processing.",
+    inputSchema: {
+      type: "object",
+      properties: { workspace_id: { type: "string", pattern: "^[a-f0-9]{64}$" } },
+      required: ["workspace_id"],
+      additionalProperties: false
+    }
+  }
 ];
+function isInternalUploadTool(name) {
+  return internalUploadTools.includes(name);
+}
+function assertNoLocalOverrides(tools) {
+  if (tools.some((tool) => localTools.some((local) => local.name === tool.name))) {
+    throw new SafeError("INVALID_CATALOG", "Remote tools cannot replace connection controls.");
+  }
+}
+
+// src/workspace.ts
+async function openPreparedWorkspace({ auth: auth2, browser, base, secrets }, input, options) {
+  if (Object.keys(input).length !== 1 || typeof input.workspace_id !== "string" || !/^[a-f0-9]{64}$/.test(input.workspace_id))
+    throw new SafeError("INVALID_INPUT", "An owned prepared workspace identity is required.");
+  let value = await auth2.callCreativeTool("pixelbank_get_workspace", input, options);
+  const data = value.data;
+  const url2 = validateWorkspaceURL(data?.url, base, input.workspace_id);
+  if (secrets.contains(url2))
+    throw new SafeError("INVALID_WORKSPACE", "The workspace URL contains private connection data.");
+  try {
+    await browser(url2);
+    value = { data: { workspace_id: input.workspace_id, url: url2, opened: true } };
+  } catch {
+    value = {
+      data: {
+        workspace_id: input.workspace_id,
+        url: url2,
+        opened: false,
+        message: "Open this link in your browser to continue editing."
+      }
+    };
+  }
+  return value;
+}
+function validateWorkspaceURL(value, _base, workspaceId) {
+  let url2;
+  try {
+    if (typeof value !== "string" || /[\s\\\x00-\x1f\x7f]/.test(value)) throw new Error();
+    url2 = new URL(value);
+  } catch {
+    throw new SafeError("INVALID_WORKSPACE", "The workspace has no valid web URL.");
+  }
+  if (url2.origin !== "https://www.pixelbankstudio.com" || url2.username || url2.password || url2.hash || !["/segment", "/generation"].includes(url2.pathname) || !/^[a-f0-9]{64}$/.test(url2.searchParams.get("workspace") ?? "") || [...url2.searchParams.keys()].some((key) => !["workspace", "workflow", "step"].includes(key)) || ["workspace", "workflow", "step"].some((key) => url2.searchParams.getAll(key).length > 1) || workspaceId !== void 0 && url2.searchParams.get("workspace") !== workspaceId || ["workflow", "step"].some(
+    (key) => url2.searchParams.has(key) && !/^[a-zA-Z0-9_-]{1,128}$/.test(url2.searchParams.get(key))
+  )) {
+    throw new SafeError("INVALID_WORKSPACE", "The workspace URL does not belong to the supported Pixelbank editor.");
+  }
+  return url2.href;
+}
+
+// src/server.ts
 function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone", dependencies = {}) {
   const base = dependencies.auth ? validateBase(dependencies.auth.base) : resolveBase();
   const secrets = dependencies.auth?.secrets ?? new Secrets();
@@ -43304,8 +43385,8 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   };
   const discover = async (signal) => {
     const tools = await auth2.listCreativeTools({ signal });
-    if (tools.some((tool) => authTools.some((local) => local.name === tool.name))) throw new SafeError("INVALID_CATALOG", "Remote tools cannot replace connection controls.");
-    return tools.filter((tool) => !["pixelbank_issue_upload", "pixelbank_save_source"].includes(tool.name));
+    assertNoLocalOverrides(tools);
+    return tools.filter((tool) => !isInternalUploadTool(tool.name));
   };
   server.setRequestHandler("tools/list", async (_request, extra) => {
     catalog = [];
@@ -43315,8 +43396,8 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
       if (!(error2 instanceof SafeError && error2.code === "AUTH_REQUIRED")) throw error2;
       catalog = [];
     }
-    if (catalog.some((tool) => authTools.some((local) => local.name === tool.name))) throw new SafeError("INVALID_CATALOG", "Remote tools cannot replace connection controls.");
-    return { tools: secrets.clean([...authTools, ...catalog]), ttlMs: 0, cacheScope: "private" };
+    assertNoLocalOverrides(catalog);
+    return { tools: secrets.clean([...localTools, ...catalog]), ttlMs: 0, cacheScope: "private" };
   });
   server.setRequestHandler("tools/call", async (request, extra) => {
     const name = request.params.name, input = request.params.arguments ?? {};
@@ -43336,19 +43417,9 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
         if (typeof input.file_path !== "string" || typeof input.purpose !== "string" || input.save_source !== void 0 && typeof input.save_source !== "boolean" || Object.keys(input).some((key) => !["file_path", "purpose", "save_source"].includes(key))) throw new SafeError("INVALID_INPUT", "A local image path and upload purpose are required.");
         value = await uploadImage(auth2, base, { file_path: input.file_path, purpose: input.purpose, save_source: input.save_source }, extra.mcpReq.signal);
       } else if (name === "pixelbank_open_workspace") {
-        if (Object.keys(input).length !== 1 || typeof input.workspace_id !== "string" || !/^[a-f0-9]{64}$/.test(input.workspace_id)) throw new SafeError("INVALID_INPUT", "An owned prepared workspace identity is required.");
-        value = await auth2.callCreativeTool("pixelbank_get_workspace", input, options);
-        const data = value.data;
-        const url2 = validateWorkspaceURL(data?.url, base, input.workspace_id);
-        if (secrets.contains(url2)) throw new SafeError("INVALID_WORKSPACE", "The workspace URL contains private connection data.");
-        try {
-          await browser(url2);
-          value = { data: { workspace_id: input.workspace_id, url: url2, opened: true } };
-        } catch {
-          value = { data: { workspace_id: input.workspace_id, url: url2, opened: false, message: "Open this link in your browser to continue editing." } };
-        }
+        value = await openPreparedWorkspace({ auth: auth2, browser, base, secrets }, input, options);
       } else {
-        if (["pixelbank_issue_upload", "pixelbank_save_source"].includes(name)) throw new SafeError("UNKNOWN_TOOL", "Use pixelbank_upload_image for an explicitly selected local image.");
+        if (isInternalUploadTool(name)) throw new SafeError("UNKNOWN_TOOL", "Use pixelbank_upload_image for an explicitly selected local image.");
         if (!catalog.some((tool) => tool.name === name)) catalog = await discover(extra.mcpReq.signal);
         if (!catalog.some((tool) => tool.name === name)) throw new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated Pixelbank catalog.");
         value = await auth2.callCreativeTool(name, input, options);
@@ -43363,19 +43434,6 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     await auth2.cancel();
     await server.close();
   } };
-}
-function validateWorkspaceURL(value, _base, workspaceId) {
-  let url2;
-  try {
-    if (typeof value !== "string" || /[\s\\\x00-\x1f\x7f]/.test(value)) throw new Error();
-    url2 = new URL(value);
-  } catch {
-    throw new SafeError("INVALID_WORKSPACE", "The workspace has no valid web URL.");
-  }
-  if (url2.origin !== "https://www.pixelbankstudio.com" || url2.username || url2.password || url2.hash || !["/segment", "/generation"].includes(url2.pathname) || !/^[a-f0-9]{64}$/.test(url2.searchParams.get("workspace") ?? "") || [...url2.searchParams.keys()].some((key) => !["workspace", "workflow", "step"].includes(key)) || ["workspace", "workflow", "step"].some((key) => url2.searchParams.getAll(key).length > 1) || workspaceId !== void 0 && url2.searchParams.get("workspace") !== workspaceId || ["workflow", "step"].some((key) => url2.searchParams.has(key) && !/^[a-zA-Z0-9_-]{1,128}$/.test(url2.searchParams.get(key)))) {
-    throw new SafeError("INVALID_WORKSPACE", "The workspace URL does not belong to the supported Pixelbank editor.");
-  }
-  return url2.href;
 }
 
 // src/index.ts
