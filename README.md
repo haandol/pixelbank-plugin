@@ -2,6 +2,8 @@
 
 Create and reuse Pixelbank images and animations from Codex or Claude Code, and continue visual selection or layered composition in the Pixelbank web editor. The plugin uses browser sign-in to the existing Pixelbank account.
 
+The canonical public repository is [haandol/pixelbank-plugin](https://github.com/haandol/pixelbank-plugin).
+
 The installable package is [plugins/pixelbank](plugins/pixelbank/README.md). The repository follows the EncBird Plugin workspace layout: marketplaces at the root select that package, which includes MCP, skills, contracts and a bundled runtime.
 
 ## Install from a local checkout

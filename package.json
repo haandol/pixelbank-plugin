@@ -16,5 +16,9 @@
     "start": "npm run start -w plugins/pixelbank",
     "validate": "node scripts/validate.mjs",
     "check": "npm run validate && npm run typecheck && npm run build && npm test && npm run validate"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haandol/pixelbank-plugin.git"
   }
 }

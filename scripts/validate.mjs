@@ -20,6 +20,8 @@ const lock = await read('package-lock.json');
 assert.equal(workspace.name, 'pixelbank-plugin-workspace');
 assert.deepEqual(workspace.workspaces, ['plugins/pixelbank']);
 assert.equal(pkg.name, 'pixelbank-creative-plugin');
+assert.deepEqual(workspace.repository, { type: 'git', url: 'git+https://github.com/haandol/pixelbank-plugin.git' });
+assert.deepEqual(pkg.repository, { ...workspace.repository, directory: 'plugins/pixelbank' });
 assert.equal(workspace.version, pkg.version);
 assert.equal(lock.packages[''].version, pkg.version);
 assert.equal(lock.packages['plugins/pixelbank'].version, pkg.version);
