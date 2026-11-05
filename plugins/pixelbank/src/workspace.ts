@@ -3,6 +3,8 @@ import { SafeError, type Secrets } from './errors.js';
 import type { openBrowser } from './oauth.js';
 import type { RemoteOptions } from './remote.js';
 
+export const WORKSPACE_ID = /^[a-f0-9]{64}$/;
+
 interface WorkspaceDependencies {
   auth: Pick<Auth, 'callCreativeTool'>;
   browser: typeof openBrowser;
@@ -19,7 +21,7 @@ export async function openPreparedWorkspace(
   if (
     Object.keys(input).length !== 1 ||
     typeof input.workspace_id !== 'string' ||
-    !/^[a-f0-9]{64}$/.test(input.workspace_id)
+    !WORKSPACE_ID.test(input.workspace_id)
   )
     throw new SafeError('INVALID_INPUT', 'An owned prepared workspace identity is required.');
   let value = await auth.callCreativeTool('pixelbank_get_workspace', input, options);
@@ -57,7 +59,7 @@ export function validateWorkspaceURL(value: unknown, _base: string, workspaceId?
     url.password ||
     url.hash ||
     !['/segment', '/generation'].includes(url.pathname) ||
-    !/^[a-f0-9]{64}$/.test(url.searchParams.get('workspace') ?? '') ||
+    !WORKSPACE_ID.test(url.searchParams.get('workspace') ?? '') ||
     [...url.searchParams.keys()].some((key) => !['workspace', 'workflow', 'step'].includes(key)) ||
     ['workspace', 'workflow', 'step'].some((key) => url.searchParams.getAll(key).length > 1) ||
     (workspaceId !== undefined && url.searchParams.get('workspace') !== workspaceId) ||

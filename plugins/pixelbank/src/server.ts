@@ -4,7 +4,7 @@ import { CredentialStore } from './store.js';
 import { resolveBase, validateBase } from './config.js';
 import { SafeError, Secrets, safeError } from './errors.js';
 import { openBrowser } from './oauth.js';
-import { uploadImage } from './upload.js';
+import { parseUploadInput, uploadImage } from './upload.js';
 import { localTools, isInternalUploadTool, assertNoLocalOverrides } from './catalog.js';
 import { openPreparedWorkspace } from './workspace.js';
 export { validateWorkspaceURL } from './workspace.js';
@@ -44,8 +44,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
         value = name === 'pixelbank_connect' ? await auth.connect() : await auth.disconnect();
         await server.notification({ method: 'notifications/tools/list_changed' }).catch(() => {});
       } else if (name === 'pixelbank_upload_image') {
-        if (typeof input.file_path !== 'string' || typeof input.purpose !== 'string' || (input.save_source !== undefined && typeof input.save_source !== 'boolean') || Object.keys(input).some(key => !['file_path','purpose','save_source'].includes(key))) throw new SafeError('INVALID_INPUT', 'A local image path and upload purpose are required.');
-        value = await uploadImage(auth, base, {file_path:input.file_path,purpose:input.purpose,save_source:input.save_source as boolean | undefined}, extra.mcpReq.signal);
+        value = await uploadImage(auth, base, parseUploadInput(input), extra.mcpReq.signal);
       } else if (name === 'pixelbank_open_workspace') {
         value = await openPreparedWorkspace({ auth, browser, base, secrets }, input, options);
       } else {

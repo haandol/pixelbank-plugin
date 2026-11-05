@@ -12,6 +12,8 @@ export const uncertainOutcome = 'A write may already have taken effect; do not c
 export const authCleanup = 'Run pixelbank_disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the creator still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.';
 export const storageRecovery = 'Ask the local operator to restore safe access while preserving credential and lock files, which may retain pending revocation. Do not copy tokens, change the credential scope to bypass cleanup, or keep retrying before repair.';
 
+export const authCancelled = () => new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.');
+
 export function safeError(error: unknown): { error: { code: string; message: string; retryAfterSeconds?: number; credit_cost?: number; retry_same_command?: boolean } } {
   if (error instanceof SafeError) return { error: { code: error.code, message: error.message,
     ...(error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds }),

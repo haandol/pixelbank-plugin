@@ -38,6 +38,12 @@ export async function readSelectedImage(path: string, limit: number): Promise<Bu
   } catch { throw preparation(); }
 }
 
+export type UploadInput = { file_path: string; purpose: string; save_source?: boolean };
+export function parseUploadInput(input: Record<string, unknown>): UploadInput {
+  if (typeof input.file_path !== 'string' || typeof input.purpose !== 'string' || (input.save_source !== undefined && typeof input.save_source !== 'boolean') || Object.keys(input).some(key => !['file_path', 'purpose', 'save_source'].includes(key))) throw new SafeError('INVALID_INPUT', 'A local image path and upload purpose are required.');
+  return { file_path: input.file_path, purpose: input.purpose, save_source: input.save_source as boolean | undefined };
+}
+
 type UploadRequest = { purpose: string; content_type: string; size_bytes: number; width: number; height: number; checksum_sha256: string };
 export function validateTicket(value: unknown, base: string, request: UploadRequest, owner: string) {
   try {
@@ -88,7 +94,7 @@ export function validateTicket(value: unknown, base: string, request: UploadRequ
 }
 
 /** The upload ticket stays private; only the verified reference or saved source reaches the model. */
-export async function uploadImage(auth: Pick<Auth, 'callCreativeTool' | 'secrets' | 'store'>, base: string, input: { file_path: string; purpose: string; save_source?: boolean }, signal?: AbortSignal) {
+export async function uploadImage(auth: Pick<Auth, 'callCreativeTool' | 'secrets' | 'store'>, base: string, input: UploadInput, signal?: AbortSignal) {
   if (!UPLOAD_PURPOSES.includes(input.purpose as typeof UPLOAD_PURPOSES[number]) || (input.save_source && input.purpose !== 'workflow-input')) throw new SafeError('INVALID_INPUT', 'Choose a published image upload purpose; persistent workspace sources require workflow-input.');
   const dimensionLimit = 2048, byteLimit = 5 * 1024 * 1024;
   const bytes = await readSelectedImage(input.file_path, byteLimit);

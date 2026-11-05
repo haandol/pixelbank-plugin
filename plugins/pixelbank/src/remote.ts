@@ -7,6 +7,7 @@ import { boundedEventStream, readBoundedBody } from './body.js';
 import { apiError } from './api-errors.js';
 import { retryAfterSeconds } from './traffic.js';
 
+const TOOL_NAME = /^pixelbank_[a-z][a-z0-9_]+$/;
 export const OPERATION_TIMEOUT_MS = 15 * 60_000;
 export const DISCOVERY_TIMEOUT_MS = 30_000;
 export interface RemoteOptions {
@@ -79,13 +80,13 @@ export async function listRemoteTools(base: string, token: () => Promise<string>
   return withRemote(base, token, async client => {
     const result = await client.listTools(undefined, { timeout: options.timeoutMs ?? OPERATION_TIMEOUT_MS, signal: options.signal });
     if (result.nextCursor) throw new SafeError('UNSUPPORTED_CATALOG', 'The server catalog must fit the published tool contract.');
-    if (new Set(result.tools.map(tool => tool.name)).size !== result.tools.length || result.tools.some(tool => !/^pixelbank_[a-z][a-z0-9_]+$/.test(tool.name))) throw new SafeError('INVALID_CATALOG', 'The server returned an invalid tool catalog.');
+    if (new Set(result.tools.map(tool => tool.name)).size !== result.tools.length || result.tools.some(tool => !TOOL_NAME.test(tool.name))) throw new SafeError('INVALID_CATALOG', 'The server returned an invalid tool catalog.');
     return result.tools;
   }, options);
 }
 
 export async function callRemoteTool(base: string, token: () => Promise<string>, name: string, input: Record<string, unknown>, options: RemoteOptions = {}): Promise<Record<string, unknown>> {
-  if (!/^pixelbank_[a-z][a-z0-9_]+$/.test(name)) throw new SafeError('INVALID_TOOL', 'Choose a published Pixelbank creative tool.');
+  if (!TOOL_NAME.test(name)) throw new SafeError('INVALID_TOOL', 'Choose a published Pixelbank creative tool.');
   return withRemote(base, token, async client => {
     const result = await client.callTool({ name, arguments: input }, { timeout: options.timeoutMs ?? OPERATION_TIMEOUT_MS, signal: options.signal, onprogress: options.onProgress, allowInputRequired: true });
     if (!('content' in result)) throw new SafeError('INPUT_REQUIRED', 'This operation requires additional user input before it can run.');

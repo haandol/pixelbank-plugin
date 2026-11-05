@@ -1,6 +1,7 @@
 import type { Auth } from './auth.js';
 import { SafeError } from './errors.js';
 import { UPLOAD_PURPOSES } from './upload.js';
+import { WORKSPACE_ID } from './workspace.js';
 
 type ToolCatalog = Awaited<ReturnType<Auth['listCreativeTools']>>;
 const internalUploadTools = ['pixelbank_issue_upload', 'pixelbank_save_source'];
@@ -38,7 +39,7 @@ export const localTools: ToolCatalog = [
       'Open an owned prepared Pixelbank workspace in the default browser. Opening applies initial settings and never starts paid processing.',
     inputSchema: {
       type: 'object' as const,
-      properties: { workspace_id: { type: 'string', pattern: '^[a-f0-9]{64}$' } },
+      properties: { workspace_id: { type: 'string', pattern: WORKSPACE_ID.source } },
       required: ['workspace_id'],
       additionalProperties: false,
     },

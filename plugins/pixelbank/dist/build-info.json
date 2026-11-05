@@ -10,7 +10,7 @@
     "proper-lockfile": "4.1.2",
     "zod": "4.6.7"
   },
-  "bundleSha256": "33927a82b59d6219b3003afb6c97f82a3f15045e5b3217bd6b58e79d4d736673",
+  "bundleSha256": "1361e72bdb7277f95a825d45d3973a6c3ce98881e376a4e4892a8ed6713d6cdc",
   "contractsSha256": "af83959d58ea6d5030a218fff7661d666afa9cc3370fec4089ae54768403cb37",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/server/dist/chunk-vYduTEsO.mjs",
@@ -231,8 +231,8 @@
     "../../node_modules/image-size/dist/esm/lookup.js",
     "../../node_modules/image-size/dist/esm/index.js",
     "src/upload.ts",
-    "src/catalog.ts",
     "src/workspace.ts",
+    "src/catalog.ts",
     "src/server.ts",
     "src/index.ts"
   ],

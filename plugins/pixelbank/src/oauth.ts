@@ -4,8 +4,12 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createLocalJWKSet, jwtVerify, type JSONWebKeySet } from 'jose';
 import { type OAuthConfig, REDIRECT_URI } from './config.js';
-import { authCleanup, SafeError, Secrets } from './errors.js';
+import { authCancelled, authCleanup, SafeError, Secrets } from './errors.js';
 import { object, requestJson, serviceUrl } from './http.js';
+
+const callbackUrl = new URL(REDIRECT_URI);
+const callbackPort = Number(callbackUrl.port);
+const verificationUnavailable = () => new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connect to start or resume verification; use pixelbank_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat creative operations.');
 
 export function proof() {
   const verifier = randomBytes(32).toString('base64url');
@@ -34,7 +38,7 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
   const servers: Server[] = [];
   const fail = (error: SafeError) => rejectCode(error);
   const close = () => { for (const server of servers) { server.close(); server.closeAllConnections(); } };
-  const abort = () => fail(new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.'));
+  const abort = () => fail(authCancelled());
   const timer = setTimeout(() => fail(new SafeError('AUTH_TIMEOUT', 'Browser sign-in timed out. If the creator still wants to connect, run pixelbank_connect for a fresh browser flow and complete it before the timeout; do not reuse the old callback.')), timeoutMs);
   signal.addEventListener('abort', abort, { once: true });
   try {
@@ -44,14 +48,14 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
         res.setHeader('Referrer-Policy', 'no-referrer');
-        if (req.method !== 'GET' || req.headers.host !== 'localhost:18766' ||
-            (req.headers.origin && req.headers.origin !== 'http://localhost:18766')) { res.writeHead(400).end('Invalid callback.'); return; }
+        if (req.method !== 'GET' || req.headers.host !== callbackUrl.host ||
+            (req.headers.origin && req.headers.origin !== callbackUrl.origin)) { res.writeHead(400).end('Invalid callback.'); return; }
         let url: URL;
         try {
           const target = req.url ?? '/';
           if (!target.startsWith('/') || target.startsWith('//') || /[\s\x00-\x1f\x7f#\\]/.test(target)) throw new Error();
           url = new URL(target, REDIRECT_URI);
-          if (url.origin !== new URL(REDIRECT_URI).origin || url.pathname !== target.split('?')[0]) throw new Error();
+          if (url.origin !== callbackUrl.origin || url.pathname !== target.split('?')[0]) throw new Error();
         } catch { res.writeHead(400).end('Invalid callback.'); return; }
         if (url.pathname !== '/oauth/callback') { res.writeHead(404).end('Not found.'); return; }
         const received = url.searchParams.get('state') ?? '';
@@ -72,10 +76,10 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
       });
       servers.push(server);
       try {
-        await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(18766, host, resolve); });
+        await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(callbackPort, host, resolve); });
       } catch (error) {
         if (host === '::1' && ['EAFNOSUPPORT', 'EADDRNOTAVAIL'].includes((error as NodeJS.ErrnoException).code ?? '')) continue;
-        throw new SafeError('CALLBACK_PORT_BUSY', 'The local sign-in callback could not listen on port 18766. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry pixelbank_connect only once the port is available; do not stop unrelated processes.');
+        throw new SafeError('CALLBACK_PORT_BUSY', `The local sign-in callback could not listen on port ${callbackPort}. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry pixelbank_connect only once the port is available; do not stop unrelated processes.`);
       }
     }
   } catch (error) { clearTimeout(timer); signal.removeEventListener('abort', abort); close(); throw error; }
@@ -115,7 +119,7 @@ export async function tokenRequest(config: OAuthConfig, form: Record<string, str
 export async function discoveryKeys(config: OAuthConfig): Promise<URL> {
   try {
     const discovery = await requestJson(`${config.issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
-    if (discovery.status >= 500) throw new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connect to start or resume verification; use pixelbank_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat creative operations.');
+    if (discovery.status >= 500) throw verificationUnavailable();
     const doc = object(discovery.body);
     if (discovery.status !== 200 || doc.issuer !== config.issuer || doc.authorization_endpoint !== config.authorizationEndpoint ||
         doc.token_endpoint !== config.tokenEndpoint ||
@@ -135,7 +139,7 @@ export async function verifyIdentity(config: OAuthConfig, idToken: string | unde
   try {
     const jwksUrl = await discoveryKeys(config);
     const keys = await requestJson(jwksUrl.href);
-    if (keys.status >= 500) throw new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connect to start or resume verification; use pixelbank_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat creative operations.');
+    if (keys.status >= 500) throw verificationUnavailable();
     if (keys.status !== 200) throw new Error();
     const { payload } = await jwtVerify(idToken, createLocalJWKSet(object(keys.body) as unknown as JSONWebKeySet), {
       issuer: config.issuer, audience: config.clientId, algorithms: ['RS256'], requiredClaims: ['sub', 'iat', 'exp'], clockTolerance: 5,

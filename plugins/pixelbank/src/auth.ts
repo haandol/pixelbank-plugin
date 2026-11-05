@@ -20,22 +20,22 @@ export class Auth {
     this.abort = new AbortController();
     const signal = this.abort.signal;
     this.task = this.store.withLock(async tx => {
-      const connection = new Connection(this.base, tx, this.secrets);
-      await connection.connect(started, signal, url => this.browser(url), this.callbackTimeoutMs);
+      await new Connection(this.base, tx, this.secrets).connect(started, signal, url => this.browser(url), this.callbackTimeoutMs);
     }).catch(error => { this.failure = safeError(error); started(this.failure); }).finally(() => { this.task = undefined; this.abort = undefined; });
     return result;
   }
   async waitForIdle() { await this.task; }
   async cancel() { this.abort?.abort(); await this.task; }
-  async request(method: string, path: string, body?: unknown) {
-    return this.store.withLock(tx => new Connection(this.base, tx, this.secrets).request(method, path, body));
-  }
-  async listCreativeTools(options: RemoteOptions = {}) { return this.store.withLock(tx => new Connection(this.base, tx, this.secrets).listCreativeTools(options)); }
+  async request(method: string, path: string, body?: unknown) { return this.locked(c => c.request(method, path, body)); }
+  async listCreativeTools(options: RemoteOptions = {}) { return this.locked(c => c.listCreativeTools(options)); }
   async callCreativeTool(name: string, input: Record<string, unknown>, options: RemoteOptions = {}) {
-    return this.store.withLock(tx => new Connection(this.base, tx, this.secrets).callCreativeTool(name, input, options));
+    return this.locked(c => c.callCreativeTool(name, input, options));
   }
   async disconnect() {
     await this.cancel(); this.failure = undefined;
-    return this.store.withLock(tx => new Connection(this.base, tx, this.secrets).disconnect());
+    return this.locked(c => c.disconnect());
+  }
+  private locked<T>(fn: (connection: Connection) => Promise<T>): Promise<T> {
+    return this.store.withLock(tx => fn(new Connection(this.base, tx, this.secrets)));
   }
 }

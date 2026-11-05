@@ -1,5 +1,5 @@
 import { bootstrap } from './config.js';
-import { authCleanup, SafeError, safeError, type Secrets } from './errors.js';
+import { authCancelled, authCleanup, SafeError, safeError, type Secrets } from './errors.js';
 import { apiRequest } from './api.js';
 import { object } from './http.js';
 import { authorizationUrl, callback, discoveryKeys, openBrowser, proof, revoke, tokenRequest, verifyIdentity } from './oauth.js';
@@ -11,6 +11,7 @@ import { checkRequestBudget, reserveRequest } from './traffic.js';
 import { callRemoteTool, listRemoteTools, type RemoteOptions } from './remote.js';
 
 export const authenticationPending = () => ({ data: { status: 'authentication_pending', message: 'Finish browser sign-in, then run pixelbank_connect to check progress; use pixelbank_disconnect to cancel.' } });
+const fullCleanup = () => ({ backend: true, provider: true });
 const hasCleanup = (g: Grant) => !!(g.cleanup?.backend || g.cleanup?.provider);
 const needsLogin = (g: Grant) => !!g.cleanup?.backend && (!g.accessToken || g.refreshInvalid || (g.refreshExpiresAt ?? Infinity) <= Date.now() || (!g.refreshToken && g.expiresAt <= Date.now()));
 const incompatible = (a: Grant, b: Grant) => a.oauth.clientId !== b.oauth.clientId || a.oauth.issuer !== b.oauth.issuer || a.oauth.resource !== b.oauth.resource;
@@ -33,7 +34,7 @@ export class Connection {
       } else {
         try { started(await this.resumeRecovery(value, signal)); }
         catch (error) {
-          const failure = signal.aborted ? new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.') : error;
+          const failure = signal.aborted ? authCancelled() : error;
           await this.failedCandidate(value, failure); throw failure;
         }
         return;
@@ -69,13 +70,16 @@ export class Connection {
           root.recovery!.idToken = tokens.idToken; root.recovery!.tokenType = tokens.tokenType;
           await this.tx.save(root);
         });
-      if (signal.aborted) throw new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.');
+      if (signal.aborted) throw authCancelled();
       await this.resumeRecovery(value, signal);
     } catch (error) {
-      const failure = signal.aborted ? new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.') : error;
+      const failure = signal.aborted ? authCancelled() : error;
       await this.failedCandidate(value, failure);
       throw failure;
     } finally { listener.cancel(); }
+  }
+  private retainCandidate(value: Credentials) {
+    (value.pendingGrants ??= []).push(value.recovery!.grant); delete value.recovery;
   }
   private grants(value: Credentials): Grant[] { return [value, ...(value.pendingGrants ?? [])]; }
   private connected(value: Grant) { return { data: { status: 'connected', connectionId: value.connectionId } }; }
@@ -95,13 +99,13 @@ export class Connection {
   }
   private async refresh(root: Credentials, grant: Grant) {
     if ((grant.refreshExpiresAt ?? Infinity) <= Date.now()) {
-      grant.refreshInvalid = true; root.status = 'disabled'; root.cleanup ??= { backend: true, provider: true }; await this.tx.save(root);
+      grant.refreshInvalid = true; root.status = 'disabled'; root.cleanup ??= fullCleanup(); await this.tx.save(root);
       throw new SafeError('OAUTH_INVALID_GRANT', 'The original one-day authorization has expired. Use pixelbank_connect for same-account browser recovery and retained cleanup.');
     }
     if (!grant.refreshToken || grant.refreshInvalid) throw new SafeError('OAUTH_INVALID_GRANT', 'The stored connection has no usable refresh authorization. Run pixelbank_connect and have the creator sign in to the same account to recover pending cleanup before creative work resumes.');
     const previousStatus = root.status;
     const previousCleanup = root.cleanup;
-    root.status = 'pending'; root.cleanup ??= { backend: true, provider: true }; await this.tx.save(root);
+    root.status = 'pending'; root.cleanup ??= fullCleanup(); await this.tx.save(root);
     try {
       const tokens = await tokenRequest(grant.oauth, { grant_type: 'refresh_token', refresh_token: grant.refreshToken }, this.secrets,
         async tokens => { if (tokens.refreshToken) grant.refreshToken = tokens.refreshToken; await this.tx.save(root); });
@@ -163,7 +167,7 @@ export class Connection {
     return grant.connectionId;
   }
   private async revokeBackend(root: Credentials, grant: Grant, fresh?: Grant) {
-    const cleanup = grant.cleanup ??= { backend: true, provider: true };
+    const cleanup = grant.cleanup ??= fullCleanup();
     if (cleanup.backend) {
       if (fresh) {
         if (!fresh.subject || fresh.subject !== root.subject || (grant.subject && grant.subject !== fresh.subject) || incompatible(grant, fresh)) {
@@ -180,7 +184,7 @@ export class Connection {
     }
   }
   private async revokeProvider(root: Credentials, grant: Grant) {
-    const cleanup = grant.cleanup ??= { backend: true, provider: true };
+    const cleanup = grant.cleanup ??= fullCleanup();
     if (cleanup.backend) throw new SafeError('CLEANUP_REQUIRED', 'Pixelbank connection revocation is still pending. Run pixelbank_disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connect with the same account. Sign-in cleanup can finish only after Pixelbank confirms revocation.');
     delete grant.accessToken; grant.expiresAt = 0; await this.tx.save(root);
     if (cleanup.provider) {
@@ -189,7 +193,7 @@ export class Connection {
     }
   }
   private async cleanupOlder(root: Credentials, fresh?: Grant, signal?: AbortSignal) {
-    const checkCancelled = () => { if (signal?.aborted) throw new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.'); };
+    const checkCancelled = () => { if (signal?.aborted) throw authCancelled(); };
     for (const grant of this.grants(root)) {
       checkCancelled();
       if (grant.cleanup?.backend) await this.revokeBackend(root, grant, fresh);
@@ -202,25 +206,25 @@ export class Connection {
   private async resumeRecovery(value: Credentials, signal?: AbortSignal) {
     await this.verifyCandidate(value);
     const candidate = value.recovery!;
-    if (signal?.aborted) throw new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.');
+    if (signal?.aborted) throw authCancelled();
     try { await this.ensureAccess(value, candidate.grant); }
     catch (error) {
       if (error instanceof SafeError && error.code === 'OAUTH_INVALID_GRANT') {
         if (candidate.grant.cleanup!.backend) {
-          value.pendingGrants ??= []; value.pendingGrants.push(candidate.grant); delete value.recovery; await this.tx.save(value);
+          this.retainCandidate(value); await this.tx.save(value);
         } else { candidate.discard = true; await this.tx.save(value); await this.discardCandidate(value); }
       }
       throw error;
     }
     await this.cleanupOlder(value, candidate.grant, signal);
-    if (signal?.aborted) throw new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.');
+    if (signal?.aborted) throw authCancelled();
     candidate.grant.cleanup!.backend = true; await this.tx.save(value);
     await this.ensureAccess(value, candidate.grant);
     const result = object(await apiRequest(this.base, candidate.grant.accessToken!, 'POST', '/connections', {}));
     if (result.status !== 'active' || typeof result.connectionId !== 'string' || !result.connectionId || result.userId !== value.subject) {
       throw new SafeError('INVALID_CONNECTION', `Pixelbank returned an invalid connection confirmation or an unexpected identity. ${authCleanup}`);
     }
-    if (signal?.aborted) throw new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.');
+    if (signal?.aborted) throw authCancelled();
     const active: Credentials = { ...candidate.grant, version: 1, status: 'active', connectionId: result.connectionId };
     delete active.cleanup; delete active.refreshInvalid;
     await this.tx.save(active);
@@ -240,7 +244,7 @@ export class Connection {
       const candidate = value.recovery;
       if (error instanceof SafeError && error.code === 'OAUTH_INVALID_GRANT' && candidate.verified &&
           candidate.grant.subject === value.subject && candidate.grant.cleanup?.backend) {
-        value.pendingGrants ??= []; value.pendingGrants.push(candidate.grant); delete value.recovery;
+        this.retainCandidate(value);
       }
       value.status = 'disabled'; await this.tx.save(value); return error;
     }
@@ -252,8 +256,7 @@ export class Connection {
     if (error instanceof SafeError && error.code === 'CONNECTION_INACTIVE' && value.recovery.verified) {
       const grant = value.recovery.grant;
       grant.refreshInvalid = true; grant.cleanup!.backend = false;
-      value.pendingGrants ??= []; value.pendingGrants.push(grant);
-      delete value.recovery; value.status = 'disabled'; await this.tx.save(value);
+      this.retainCandidate(value); value.status = 'disabled'; await this.tx.save(value);
       return;
     }
     if (permanent(error) || !value.recovery.grant.refreshToken) {
@@ -271,13 +274,13 @@ export class Connection {
   private async authenticated<T>(input: unknown, operation: (token: () => Promise<string>) => Promise<T>): Promise<T> {
     const value = await this.tx.load();
     if (!value || value.status !== 'active') throw new SafeError('AUTH_REQUIRED', 'No active local connection is available. Run pixelbank_connect and complete or check browser sign-in before using creative tools. If cleanup is required, run pixelbank_disconnect; use same-account recovery when requested.');
-    filterExternalInput('transport', input, this.secrets);
-    JSON.stringify(input, (key, item) => { filterExternalInput('transport', key, this.secrets); return item; });
+    filterExternalInput(input, this.secrets);
+    JSON.stringify(input, (key, item) => { filterExternalInput(key, this.secrets); return item; });
     const token = async () => {
       checkRequestBudget(value.traffic);
       if (value.expiresAt <= Date.now() + 60_000) {
         try { await this.refresh(value, value); }
-        catch (error) { value.status = 'disabled'; value.cleanup = { backend: true, provider: true }; await this.tx.save(value); throw error; }
+        catch (error) { value.status = 'disabled'; value.cleanup = fullCleanup(); await this.tx.save(value); throw error; }
       }
       value.traffic = await reserveRequest(value.traffic);
       await this.tx.save(value);
@@ -294,13 +297,13 @@ export class Connection {
         throw new SafeError(error.code, 'Pixelbank rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connect recovery instructions. Never copy tokens or bypass sign-in.');
       }
       if (error instanceof SafeError && error.code === 'CONNECTION_INACTIVE') {
-        value.status = 'disabled'; value.cleanup = { backend: true, provider: true }; await this.tx.save(value); await this.cleanup(value);
+        value.status = 'disabled'; value.cleanup = fullCleanup(); await this.tx.save(value); await this.cleanup(value);
       }
       throw error;
     }
   }
   private async cleanup(value: Credentials) {
-    value.status = 'disabled'; value.cleanup ??= { backend: true, provider: true }; await this.tx.save(value);
+    value.status = 'disabled'; value.cleanup ??= fullCleanup(); await this.tx.save(value);
     const candidate = value.recovery;
     if (candidate) { candidate.discard = true; await this.tx.save(value); }
     try { await this.cleanupOlder(value, candidate?.verified ? candidate.grant : undefined); }
