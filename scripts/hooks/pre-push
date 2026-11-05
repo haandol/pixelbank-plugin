@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Pixelbank Plugin pre-push hook. Only the release container mounts a verification receipt.
+set -euo pipefail
+task_receipt=/run/verification/receipt
+if [[ "${PIXELBANK_PUSH_RECEIPT:-}" != "$task_receipt" ]]; then
+    printf '%s\n' 'Pixelbank Plugin pushes run in the release container: bash scripts/container-git.sh push origin main' >&2
+    exit 1
+fi
+exec bash "$(git rev-parse --show-toplevel)/scripts/verify-push.sh" "$task_receipt"

@@ -15,7 +15,10 @@
     "test": "npm run test -w plugins/pixelbank",
     "start": "npm run start -w plugins/pixelbank",
     "validate": "node scripts/validate.mjs",
-    "check": "npm run validate && npm run typecheck && npm run build && npm test && npm run validate"
+    "check": "npm run validate && npm run typecheck && npm run build && npm test && npm run test:release && npm run validate",
+    "test:release": "node --test scripts/tests/*.test.mjs",
+    "check:container": "bash scripts/container-check.sh",
+    "hooks:install": "bash scripts/install-hooks.sh"
   },
   "repository": {
     "type": "git",

@@ -6,23 +6,23 @@ The canonical public repository is [haandol/pixelbank-plugin](https://github.com
 
 The installable package is [plugins/pixelbank](plugins/pixelbank/README.md). The repository follows the EncBird Plugin workspace layout: marketplaces at the root select that package, which includes MCP, skills, contracts and a bundled runtime.
 
-## Install from a local checkout
+## Install
 
 Node.js 24 and a local browser on macOS or Linux are required. The committed bundle includes runtime dependencies; installing the plugin does not require `npm install`.
 
 ```sh
-codex plugin marketplace add /absolute/path/to/pixelbank-plugin
+codex plugin marketplace add haandol/pixelbank-plugin
 codex plugin add pixelbank@pixelbank
 ```
 
 For Claude Code:
 
 ```sh
-claude plugin marketplace add /absolute/path/to/pixelbank-plugin
+claude plugin marketplace add haandol/pixelbank-plugin
 claude plugin install pixelbank@pixelbank
 ```
 
-Use the repository root, not the package subdirectory, as the marketplace path. After publication, `haandol/pixelbank-plugin` can replace the local path. This checkout has not been published; the Pixelbank MCP backend must also be deployed before account connection works.
+To install a local checkout, pass the absolute repository root path instead; do not use the package subdirectory. Account connection requires the Pixelbank MCP service. Until it is available, sign-in reports that its configuration could not be loaded.
 
 ## Use Pixelbank
 
