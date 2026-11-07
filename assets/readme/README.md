@@ -3,7 +3,7 @@
 These images come from a Pixelbank MCP test using live image and animation processing. They are synthetic creative examples, not customer uploads.
 
 - `generate-and-cutout.jpg` pairs the generated robot with the actual background-removal result. The checkerboard indicates transparency; the panels were resized and labeled for the README.
-- `robot.jpg` and `robot-wave.gif` show the input and the generated 16-frame animation. The GIF retains its original dimensions and frames.
+- `robot-wave.gif` is the generated 16-frame animation of the original blue-background image. It retains its original dimensions and frames.
 - `frame-edit.jpg` compares the actual first frame before and after a single-frame correction. Only that frame was replaced in the test.
 - `studio-editor.jpg` is a screenshot of the local Pixelbank web editor with the test image loaded. It is cropped to the editor so account information is excluded. The visible draft instruction was not submitted.
 

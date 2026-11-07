@@ -57,13 +57,11 @@ The checkerboard shows transparency. You can also isolate part of an image, enla
 
 > Make this robot wave once, then return to its starting pose.
 
-<table>
-  <tr><th>Starting image</th><th>Generated animation</th></tr>
-  <tr>
-    <td><img src="assets/readme/robot.jpg" alt="The still robot used as the animation input" width="256" height="256"></td>
-    <td><img src="assets/readme/robot-wave.gif" alt="The robot raising and lowering its hand in a generated 16-frame animation" width="256" height="256"></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="assets/readme/robot-wave.gif" alt="The robot raising and lowering its hand in a generated 16-frame animation" width="256" height="256">
+</p>
+
+*The original blue-background image, animated into a 16-frame GIF.*
 
 ### Change one frame
 
