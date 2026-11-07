@@ -1,4 +1,10 @@
-# Pixelbank Plugin
+<p align="center">
+  <a href="https://www.pixelbankstudio.com">
+    <img src="plugins/pixelbank/assets/icon.png" alt="Pixelbank icon" width="112" height="112">
+  </a>
+</p>
+
+<h1 align="center">Pixelbank Plugin</h1>
 
 Create and reuse Pixelbank images and animations from Codex or Claude Code, and continue visual selection or layered composition in the Pixelbank web editor. The plugin uses browser sign-in to the existing Pixelbank account.
 

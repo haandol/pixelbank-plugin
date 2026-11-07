@@ -1,4 +1,10 @@
-# Pixelbank Plugin
+<p align="center">
+  <a href="https://www.pixelbankstudio.com">
+    <img src="assets/icon.png" alt="Pixelbank icon" width="112" height="112">
+  </a>
+</p>
+
+<h1 align="center">Pixelbank Plugin</h1>
 
 Use Pixelbank from Codex or Claude Code, then continue visual selection and layered composition in the Pixelbank web editor. The plugin signs in through the browser using your existing Pixelbank account. It never asks you to copy a password, token or AWS key into a conversation.
 

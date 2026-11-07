@@ -39,6 +39,8 @@
     "websiteURL": "https://www.pixelbankstudio.com",
     "defaultPrompt": [
       "Help me create a promotional image with Pixelbank."
-    ]
+    ],
+    "logo": "./assets/icon.png",
+    "composerIcon": "./assets/icon-small.png"
   }
 }
