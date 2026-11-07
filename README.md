@@ -1,47 +1,120 @@
 <p align="center">
   <a href="https://www.pixelbankstudio.com">
-    <img src="plugins/pixelbank/assets/icon.png" alt="Pixelbank icon" width="112" height="112">
+    <img src="plugins/pixelbank/assets/icon.png" alt="Pixelbank" width="96" height="96">
   </a>
 </p>
 
 <h1 align="center">Pixelbank Plugin</h1>
 
-Create and reuse Pixelbank images and animations from Codex or Claude Code, and continue visual selection or layered composition in the Pixelbank web editor. The plugin uses browser sign-in to the existing Pixelbank account.
+<p align="center">Make images and animations from Codex or Claude Code.</p>
 
-The canonical public repository is [haandol/pixelbank-plugin](https://github.com/haandol/pixelbank-plugin).
+<p align="center">
+  <a href="https://www.pixelbankstudio.com">Pixelbank Studio</a> ·
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#examples">Examples</a> ·
+  <a href="https://github.com/haandol/pixelbank-plugin/issues">Help & feedback</a>
+</p>
 
-The installable package is [plugins/pixelbank](plugins/pixelbank/README.md). The repository follows the EncBird Plugin workspace layout: marketplaces at the root select that package, which includes MCP, skills, contracts and a bundled runtime.
+Start with a prompt or a picture. Generate an image, remove its background, or turn a character into an animation. Save your results in Pixelbank and use them again in your next project.
 
-## Install
+## Quickstart
 
-Node.js 24 and a local browser on macOS or Linux are required. The committed bundle includes runtime dependencies; installing the plugin does not require `npm install`.
+You'll need **Node.js 24**, **macOS or Linux**, a Pixelbank account, and Codex or Claude Code.
+
+### Codex
 
 ```sh
 codex plugin marketplace add haandol/pixelbank-plugin
 codex plugin add pixelbank@pixelbank
 ```
 
-For Claude Code:
+### Claude Code
 
 ```sh
 claude plugin marketplace add haandol/pixelbank-plugin
 claude plugin install pixelbank@pixelbank
 ```
 
-To install a local checkout, pass the absolute repository root path instead; do not use the package subdirectory. Account connection requires the Pixelbank MCP service. Until it is available, sign-in reports that its configuration could not be loaded.
+Then ask your assistant:
 
-## Use Pixelbank
+> Connect my Pixelbank account.
 
-Ask “Connect my Pixelbank account,” finish the browser sign-in and return to the conversation. Passwords, tokens and callback URLs never belong in the chat. Account connection and permission to spend credits remain separate.
+Finish signing in in your browser, then ask the assistant to check the connection.
 
-- Remove backgrounds, run fully specified image operations, upscale images and work with animations.
-- Create food-promotion, product-background or banner workflows and continue from the selected result.
-- Prepare an owner-only web workspace with images, supported layer settings and a prompt. Opening it does not process images or charge credits.
+## Examples
 
-Space, previsualization and video execution are deferred. See the [plugin usage guide](plugins/pixelbank/README.md) for supported operations, workflow continuity, error recovery and disconnecting.
+Try prompts like these. The previews come from a real local MCP test run with live image and animation processing.
 
-## Development and notices
+### Create an image, then reuse it
 
-[Development documentation](docs/README.md) describes the workspace and verification commands. Public code contains no private service implementation or credentials.
+> Make a friendly orange toy robot on a pale blue background. Then remove the background so I can use the robot on its own.
 
-The browser-login and recovery implementation derives from EncBird. See [third-party source notices](THIRD_PARTY_NOTICES.md), [the original EncBird license](LICENSE.encbird) and [bundled dependency licenses](plugins/pixelbank/dist/THIRD_PARTY_LICENSES.txt).
+<img src="assets/readme/generate-and-cutout.jpg" alt="The generated orange robot on blue, beside the same robot with its background removed" width="800">
+
+The checkerboard shows transparency. You can also isolate part of an image, enlarge a result by 2× or 4×, and download the saved original.
+
+### Bring a character to life
+
+> Make this robot wave once, then return to its starting pose.
+
+<table>
+  <tr><th>Starting image</th><th>Generated animation</th></tr>
+  <tr>
+    <td><img src="assets/readme/robot.jpg" alt="The still robot used as the animation input" width="256" height="256"></td>
+    <td><img src="assets/readme/robot-wave.gif" alt="The robot raising and lowering its hand in a generated 16-frame animation" width="256" height="256"></td>
+  </tr>
+</table>
+
+### Change one frame
+
+> In the first frame, raise the robot's left hand a little. Keep the other frames as they are.
+
+<img src="assets/readme/frame-edit.jpg" alt="The first frame before and after its hand position was changed" width="560">
+
+In this test, only the selected frame was replaced; the other 15 kept their saved images. You can also leave out unwanted frames and rebuild the GIF without generating new ones.
+
+## Continue in the editor
+
+To arrange an image or refine a selection by hand, continue in Pixelbank's web editor.
+
+> Open this robot image in Pixelbank so I can adjust the layout.
+
+The assistant can prepare your images and draft prompt before opening it. You can then move layers, resize them, or add visual instructions.
+
+<img src="assets/readme/studio-editor.jpg" alt="A real Pixelbank editor screenshot with the tested robot image selected on the canvas and a draft instruction below" width="900">
+
+*The test image loaded into Pixelbank's web editor. The draft instruction has not been submitted.*
+
+Opening a prepared workspace doesn't spend credits. Its link restores the initial setup; later canvas edits aren't autosaved by that link. For a longer task, ask for a food-promotion, product-background, or banner workflow to keep its inputs and selected results together.
+
+## A few useful details
+
+<details>
+<summary><strong>Do I need my own AI API keys?</strong></summary>
+
+No. Connect your Pixelbank account through browser sign-in. Keep passwords and tokens out of the conversation.
+
+</details>
+
+<details>
+<summary><strong>When are credits used?</strong></summary>
+
+The assistant checks the current price and available free uses before processing. It asks before spending credits unless you've enabled automatic confirmation in Pixelbank. If free-use availability can't be checked, a paid fallback still needs your approval. Browsing, quotes, and preparing or opening an editor workspace don't spend credits. See [pricing](https://www.pixelbankstudio.com/pricing).
+
+</details>
+
+<details>
+<summary><strong>What does the plugin support?</strong></summary>
+
+Images, animations, saved image workflows, and prepared web workspaces. Local uploads accept PNG, JPEG, and WebP up to 2048 pixels per side and 5 MiB. Space, previsualization, and video execution aren't available through this plugin yet.
+
+</details>
+
+<details>
+<summary><strong>How do I disconnect or get help?</strong></summary>
+
+Ask “Disconnect Pixelbank” and wait for confirmation that cleanup is complete. If an operation is interrupted, ask the assistant to check the existing job before retrying. See the [usage and recovery guide](plugins/pixelbank/README.md) or [open an issue](https://github.com/haandol/pixelbank-plugin/issues).
+
+</details>
+
+For contributors: [development documentation](docs/README.md). Browser sign-in and recovery derive from EncBird; see the [source notices](THIRD_PARTY_NOTICES.md), [EncBird license](LICENSE.encbird), and [bundled dependency licenses](plugins/pixelbank/dist/THIRD_PARTY_LICENSES.txt).

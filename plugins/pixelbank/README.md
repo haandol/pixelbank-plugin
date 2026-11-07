@@ -8,7 +8,7 @@
 
 Use Pixelbank from Codex or Claude Code, then continue visual selection and layered composition in the Pixelbank web editor. The plugin signs in through the browser using your existing Pixelbank account. It never asks you to copy a password, token or AWS key into a conversation.
 
-This repository contains the public local bridge, installation metadata and creative-workflow skills. The protected remote service is implemented in Pixelbank's private repository. **The new remote service must be deployed before account connection works; this development checkout does not imply a live service.**
+For a quick introduction and real output examples, see the [repository overview](https://github.com/haandol/pixelbank-plugin#examples). This guide covers supported inputs, workflow continuity and connection recovery.
 
 ## Install and connect
 
@@ -17,18 +17,18 @@ Node.js 24 on macOS or Linux is required. The checked-in `dist/` bundle includes
 For Codex:
 
 ```sh
-codex plugin marketplace add /absolute/path/to/pixelbank-plugin
+codex plugin marketplace add haandol/pixelbank-plugin
 codex plugin add pixelbank@pixelbank
 ```
 
 For Claude Code, run inside the host:
 
 ```text
-/plugin marketplace add /absolute/path/to/pixelbank-plugin
+/plugin marketplace add haandol/pixelbank-plugin
 /plugin install pixelbank@pixelbank
 ```
 
-Use the repository root as the marketplace path. After publication, the same commands can use `haandol/pixelbank-plugin`.
+For a local checkout, replace `haandol/pixelbank-plugin` with the absolute repository root path, not the package subdirectory.
 
 After installation, run the setup skill or ask, “Connect my Pixelbank account.” Complete sign-in in the browser. The callback listener uses only `http://localhost:18766/oauth/callback`; the remote MCP resource is `https://api.pixelbankstudio.com/mcp`. A server-URL-only connection is not the supported onboarding flow.
 
