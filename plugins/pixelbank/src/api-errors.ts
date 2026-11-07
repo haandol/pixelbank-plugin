@@ -16,7 +16,6 @@ const messages: Record<string, string> = {
 export function apiError(status: number, code: string, headerPause?: number, structuredPause?: unknown, details: Record<string, unknown> = {}): SafeError {
  if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code)) code = 'API_ERROR';
  if (status === 401) return new SafeError('AUTH_REQUIRED', messages.AUTH_REQUIRED!);
- if (status === 403 && code === 'API_ERROR') code = 'CONNECTION_FORBIDDEN';
  if ((status === 429 || status === 503) && code === 'API_ERROR') code = status === 429 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE';
  const error = new SafeError(code, messages[code] ?? `Pixelbank could not complete the operation (${code}). ${uncertainOutcome}`, undefined, details);
  if (status === 429 || status === 503 || code === 'RATE_LIMITED') {

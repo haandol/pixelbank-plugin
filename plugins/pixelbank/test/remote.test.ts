@@ -105,11 +105,29 @@ for (const protocolVersion of ['2026-07-28', '2025-11-25'] as const) test(`${pro
 
 test('bounded HTTP errors preserve fixed status semantics without reflecting provider text', async t => {
   const { m, token } = await fixture(t);
-  for (const [status, code] of [[403, 'CONNECTION_FORBIDDEN'], [502, 'API_ERROR']] as const) {
+  for (const [status, code] of [[403, 'API_ERROR'], [502, 'API_ERROR']] as const) {
     m.flags.apiStatus = status; m.flags.apiRawBody = 'secret'.repeat(MAX_RESPONSE_BYTES);
     await assert.rejects(callRemoteTool(m.base, token, tool.name, original), (e: SafeError) => { assert.equal(e.code, code); assert.ok(!e.message.includes('secret')); return true; });
   }
   assert.equal(m.rpcCalls().length, 2);
+});
+
+test('a generic discovery 403 is not reported as insufficient scope and exposes no raw server diagnostics', async t => {
+  const { m, token } = await fixture(t);
+  m.hooks.rpc = (body, _req, res) => {
+    if (body.method !== 'server/discover') return false;
+    res.writeHead(403, { 'content-type': 'text/plain' }).end('Forbidden: invalid Host header "private-host-secret"');
+    return true;
+  };
+  await assert.rejects(listRemoteTools(m.base, token), (error: SafeError) => {
+    assert.equal(error.code, 'API_ERROR');
+    assert.ok(!error.message.includes('scope'));
+    assert.ok(!error.message.includes('private-host-secret'));
+    return true;
+  });
+  assert.equal(m.rpcCalls().length, 0);
+  assert.equal(m.counts.refresh, 0);
+  assert.equal(m.counts.disconnect, 0);
 });
 
 test('oversized or malformed success bodies and disconnected writes fail without replay', async t => {

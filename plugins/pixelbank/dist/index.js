@@ -24848,7 +24848,6 @@ var messages = {
 function apiError(status, code, headerPause, structuredPause, details = {}) {
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code)) code = "API_ERROR";
   if (status === 401) return new SafeError("AUTH_REQUIRED", messages.AUTH_REQUIRED);
-  if (status === 403 && code === "API_ERROR") code = "CONNECTION_FORBIDDEN";
   if ((status === 429 || status === 503) && code === "API_ERROR") code = status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE";
   const error2 = new SafeError(code, messages[code] ?? `Pixelbank could not complete the operation (${code}). ${uncertainOutcome}`, void 0, details);
   if (status === 429 || status === 503 || code === "RATE_LIMITED") {

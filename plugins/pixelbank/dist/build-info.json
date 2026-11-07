@@ -10,7 +10,7 @@
     "proper-lockfile": "4.1.2",
     "zod": "4.6.7"
   },
-  "bundleSha256": "1361e72bdb7277f95a825d45d3973a6c3ce98881e376a4e4892a8ed6713d6cdc",
+  "bundleSha256": "70deb05086060edbcf3c9a5c45df5eea9129e8434425db31f344b8edc3953d5f",
   "contractsSha256": "af83959d58ea6d5030a218fff7661d666afa9cc3370fec4089ae54768403cb37",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/server/dist/chunk-vYduTEsO.mjs",
