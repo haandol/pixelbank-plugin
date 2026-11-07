@@ -10,7 +10,7 @@ GH_TOKEN=$(cat /run/credentials/github-token)
 export GH_TOKEN
 task_version=${task_tag#v}
 task_notes_source="/workspace/.release/notes-$task_tag.md"
-[[ -s "$task_notes_source" ]] || reject "Write the Korean release notes in .release/notes-$task_tag.md first."
+[[ -s "$task_notes_source" ]] || reject "Write the English and Korean release notes in .release/notes-$task_tag.md first."
 
 # The local annotated tag, the remote tag and the source version must agree.
 [[ "$(git cat-file -t "refs/tags/$task_tag")" == tag ]] || reject "$task_tag must be a local annotated tag."

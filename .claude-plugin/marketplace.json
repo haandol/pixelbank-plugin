@@ -9,7 +9,7 @@
       "name": "pixelbank",
       "source": "./plugins/pixelbank",
       "description": "Create and reuse PixelbankStudio assets through MCP, with prepared web workspaces for visual editing.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }

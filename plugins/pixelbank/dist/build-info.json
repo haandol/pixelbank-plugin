@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "node": ">=24 <25",
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",
@@ -10,7 +10,7 @@
     "proper-lockfile": "4.1.2",
     "zod": "4.6.7"
   },
-  "bundleSha256": "78d6b5b9b83b9a88a4209bcdab23f4c0c28c40f2d881d4c84539f71a7b00014d",
+  "bundleSha256": "5e8f32661f2807e0076e8303a8bddb23809fb432234f801bdf8e8cf1bcc17a6c",
   "contractsSha256": "af83959d58ea6d5030a218fff7661d666afa9cc3370fec4089ae54768403cb37",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/server/dist/chunk-vYduTEsO.mjs",

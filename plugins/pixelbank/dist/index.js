@@ -41429,7 +41429,7 @@ var DISCOVERY_TIMEOUT_MS = 3e4;
 async function withRemote(base, token, action, options) {
   const endpoint = new URL("/mcp", validateBase(base));
   const version2 = options.protocolVersion ?? "2026-07-28";
-  const client = new Client({ name: "pixelbank-mcp", version: "0.1.0" }, {
+  const client = new Client({ name: "pixelbank-mcp", version: "0.1.1" }, {
     supportedProtocolVersions: [version2],
     versionNegotiation: { mode: version2 === "2026-07-28" ? { pin: version2 } : "legacy", probe: { maxRetries: 0 } },
     inputRequired: { autoFulfill: false }
@@ -43384,7 +43384,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   const secrets = dependencies.auth?.secrets ?? new Secrets();
   const auth2 = dependencies.auth ?? new Auth(base, new CredentialStore(base, profile, secrets), secrets);
   const browser = dependencies.browser ?? openBrowser;
-  const server = new Server({ name: "pixelbank", version: "0.1.0" }, {
+  const server = new Server({ name: "pixelbank", version: "0.1.1" }, {
     supportedProtocolVersions: ["2026-07-28", "2025-11-25"],
     capabilities: { tools: { listChanged: true } },
     instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools."
