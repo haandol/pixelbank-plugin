@@ -1,5 +1,5 @@
 {
-  "name": "Pixelbank Plugin (Node 24)",
+  "name": "PixelbankStudio Plugin (Node 24)",
   "build": { "dockerfile": "Dockerfile" },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/pixelbank-plugin,type=bind,consistency=cached",
   "workspaceFolder": "/workspaces/pixelbank-plugin",

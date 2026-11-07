@@ -10,7 +10,7 @@ export const localTools: ToolCatalog = [
   {
     name: 'pixelbank_upload_image',
     description:
-      'Upload an explicitly selected local PNG, JPEG or WebP image to Pixelbank. Use workflow-input and save_source=true to prepare a persistent web-workspace source.',
+      'Upload an explicitly selected local PNG, JPEG or WebP image to PixelbankStudio. Use workflow-input and save_source=true to prepare a persistent web-workspace source.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -24,19 +24,19 @@ export const localTools: ToolCatalog = [
   },
   {
     name: 'pixelbank_connect',
-    description: 'Connect Pixelbank through browser sign-in, or check a sign-in already in progress.',
+    description: 'Connect PixelbankStudio through browser sign-in, or check a sign-in already in progress.',
     inputSchema: { type: 'object' as const, properties: {}, additionalProperties: false },
   },
   {
     name: 'pixelbank_disconnect',
     description:
-      'Revoke this Pixelbank connection and remove its local credentials. Accepted creative jobs retain their existing lifecycle.',
+      'Revoke this PixelbankStudio connection and remove its local credentials. Accepted creative jobs retain their existing lifecycle.',
     inputSchema: { type: 'object' as const, properties: {}, additionalProperties: false },
   },
   {
     name: 'pixelbank_open_workspace',
     description:
-      'Open an owned prepared Pixelbank workspace in the default browser. Opening applies initial settings and never starts paid processing.',
+      'Open an owned prepared PixelbankStudio workspace in the default browser. Opening applies initial settings and never starts paid processing.',
     inputSchema: {
       type: 'object' as const,
       properties: { workspace_id: { type: 'string', pattern: WORKSPACE_ID.source } },

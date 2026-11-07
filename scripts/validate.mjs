@@ -51,6 +51,16 @@ for (const file of ['dist/index.js', 'contracts/tools.json', 'skills/setup/SKILL
   assert((await stat(resolve(plugin, file))).isFile(), `Missing installed file: ${file}`);
 }
 assert.equal(portable.extensions['com.openai'].onboardingSkill, './skills/setup/SKILL.md');
+for (const metadata of [codex.interface, portable.extensions['com.openai'].interface]) {
+  assert.equal(metadata.displayName, 'PixelbankStudio');
+  assert.equal(metadata.developerName, 'PixelbankStudio');
+}
+for (const directory of [root, plugin]) {
+  const english = await readFile(resolve(directory, 'README.md'), 'utf8');
+  const korean = await readFile(resolve(directory, 'README.ko.md'), 'utf8');
+  assert(english.includes('href="README.ko.md"'), 'English README must link to Korean');
+  assert(korean.includes('href="README.md"'), 'Korean README must link to English');
+}
 for (const file of ['LICENSE.encbird', 'THIRD_PARTY_NOTICES.md']) {
   assert.deepEqual(await readFile(resolve(root, file)), await readFile(resolve(plugin, file)));
 }
@@ -64,4 +74,4 @@ assert.equal(info.contractsSha256, await hash('contracts/tools.json'));
 const tools = await read('plugins/pixelbank/contracts/tools.json');
 assert.equal(tools.tools.length, 29);
 assert.equal(new Set(tools.tools.map(tool => tool.name)).size, 29);
-console.log(`Pixelbank Plugin ${pkg.version}: marketplace, package, host manifests and 29 tool contracts agree.`);
+console.log(`PixelbankStudio Plugin ${pkg.version}: marketplace, package, host manifests and 29 tool contracts agree.`);

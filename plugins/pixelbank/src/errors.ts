@@ -8,7 +8,7 @@ export class SafeError extends Error {
   }
 }
 
-export const uncertainOutcome = 'A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in Pixelbank first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.';
+export const uncertainOutcome = 'A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in PixelbankStudio first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.';
 export const authCleanup = 'Run pixelbank_disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the creator still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.';
 export const storageRecovery = 'Ask the local operator to restore safe access while preserving credential and lock files, which may retain pending revocation. Do not copy tokens, change the credential scope to bypass cleanup, or keep retrying before repair.';
 

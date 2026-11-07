@@ -1,7 +1,9 @@
 ---
 name: pixelbank-setup
-description: Connect Pixelbank using browser sign-in after installing the creative-tools plugin.
+description: Connect PixelbankStudio using browser sign-in after installing the creative-tools plugin.
 ---
+
+Use the official name PixelbankStudio in customer-facing replies. Support English and Korean, responding in the creator's language while preserving tool identifiers and structured values.
 
 Explain that the connection can read the owner's creative assets and credit information, upload and edit assets, manage workflows and execute approved creative processing. Connection approval is separate from a paid operation or destructive asset action.
 

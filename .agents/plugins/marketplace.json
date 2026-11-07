@@ -1,7 +1,7 @@
 {
   "name": "pixelbank",
   "interface": {
-    "displayName": "Pixelbank"
+    "displayName": "PixelbankStudio"
   },
   "plugins": [
     {

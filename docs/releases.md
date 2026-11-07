@@ -1,5 +1,7 @@
 # Container pushes and versioned releases
 
+**English** · [한국어](releases.ko.md)
+
 The public destination is `haandol/pixelbank-plugin`. Every push and GitHub Release runs in the release container built from `.devcontainer/release`. Host pushes are refused by the repository hook. Setup, checks and local commits do not authorize a push or a release.
 
 ## Roles
@@ -25,10 +27,10 @@ The push re-verifies `HEAD` unless a receipt for the same tree and verification 
 
 1. Keep the version synchronized across the workspace, plugin package, lockfile, host manifests and marketplace metadata. `npm run validate` checks it.
 2. Push the release commit to `main` and wait for its `verify` check.
-3. Create an annotated tag on that commit and push it: `git tag -a v0.1.0 -m "Pixelbank Plugin 0.1.0"`, then `bash scripts/container-git.sh push origin v0.1.0`.
-4. Write user-visible release notes in Korean in the ignored `.release/notes-v0.1.0.md`. Never include private service implementation, operational data, credentials or user content.
-5. Run `bash scripts/container-release.sh v0.1.0`.
+3. Create an annotated tag on that commit and push it: `git tag -a v0.1.0 -m "PixelbankStudio Plugin 0.1.0"`, then `bash scripts/container-git.sh push origin v0.1.0`.
+4. Write user-visible release notes in both English and Korean in the ignored `.release/notes-v0.1.0.md`. Never include private service implementation, operational data, credentials or user content.
+   Then run `bash scripts/container-release.sh v0.1.0`.
 
 The publisher appends the source commit and ZIP SHA-256, uploads `pixelbank-plugin-<version>.zip` and `SHA256SUMS`, and then verifies the public state: not a draft, the expected assets, an anonymously downloaded ZIP matching the tagged source and a public repository. An existing release is verified and never overwritten; a conflicting tag or release stops the workflow.
 
-Marketplace installation selects the repository, not a release tag, so a release does not pin installations. The plugin version and the Pixelbank API contract version remain independent.
+Marketplace installation selects the repository, not a release tag, so a release does not pin installations. The plugin version and the PixelbankStudio API contract version remain independent.

@@ -1,12 +1,14 @@
 <p align="center">
   <a href="https://www.pixelbankstudio.com">
-    <img src="assets/icon.png" alt="Pixelbank icon" width="112" height="112">
+    <img src="assets/icon.png" alt="PixelbankStudio icon" width="112" height="112">
   </a>
 </p>
 
-<h1 align="center">Pixelbank Plugin</h1>
+<h1 align="center">PixelbankStudio Plugin</h1>
 
-Use Pixelbank from Codex or Claude Code, then continue visual selection and layered composition in the Pixelbank web editor. The plugin signs in through the browser using your existing Pixelbank account. It never asks you to copy a password, token or AWS key into a conversation.
+<p align="center"><strong>English</strong> · <a href="README.ko.md">한국어</a></p>
+
+Use PixelbankStudio from Codex or Claude Code, then continue visual selection and layered composition in the PixelbankStudio web editor. The plugin signs in through the browser using your existing PixelbankStudio account. It never asks you to copy a password, token or AWS key into a conversation.
 
 For a quick introduction and real output examples, see the [repository overview](https://github.com/haandol/pixelbank-plugin#examples). This guide covers supported inputs, workflow continuity and connection recovery.
 
@@ -30,9 +32,9 @@ For Claude Code, run inside the host:
 
 For a local checkout, replace `haandol/pixelbank-plugin` with the absolute repository root path, not the package subdirectory.
 
-After installation, run the setup skill or ask, “Connect my Pixelbank account.” Complete sign-in in the browser. The callback listener uses only `http://localhost:18766/oauth/callback`; the remote MCP resource is `https://api.pixelbankstudio.com/mcp`. A server-URL-only connection is not the supported onboarding flow.
+After installation, run the setup skill or ask, “Connect my PixelbankStudio account.” Complete sign-in in the browser. The callback listener uses only `http://localhost:18766/oauth/callback`; the remote MCP resource is `https://api.pixelbankstudio.com/mcp`. A server-URL-only connection is not the supported onboarding flow.
 
-Connection approval allows the advertised account operations. Credit spending and destructive asset changes retain their separate consent rules. Ask “Disconnect Pixelbank” to revoke the connection and remove local credentials. If cleanup is pending, follow the returned recovery instruction before treating the connection as disconnected.
+Connection approval allows the advertised account operations. Credit spending and destructive asset changes retain their separate consent rules. Ask “Disconnect PixelbankStudio” to revoke the connection and remove local credentials. If cleanup is pending, follow the returned recovery instruction before treating the connection as disconnected.
 
 ## Create and continue in the web editor
 
@@ -51,9 +53,9 @@ This release covers image and animation operations and their workflows. Space, p
 
 For example:
 
-> Use this product photo to make a promotional banner. Remove its background, prepare a composition with room for copy, and open Pixelbank so I can adjust the layers.
+> Use this product photo to make a promotional banner. Remove its background, prepare a composition with room for copy, and open PixelbankStudio so I can adjust the layers.
 
-The assistant uploads only the selected file, checks the current price and free uses, and starts the workflow. It prepares an owner-only web link carrying the original images, supported layer settings and draft prompt. Opening the link loads those settings without running image processing or charging credits. Sign in to Pixelbank with the same account to edit them.
+The assistant uploads only the selected file, checks the current price and free uses, and starts the workflow. It prepares an owner-only web link carrying the original images, supported layer settings and draft prompt. Opening the link loads those settings without running image processing or charging credits. Sign in to PixelbankStudio with the same account to edit them.
 
 After editing, select the result in the workflow and tell the assistant to continue. It reads the same saved run and its permitted next action. Opening or closing a tab does not complete a step. Final acceptance remains explicit.
 
@@ -69,6 +71,6 @@ Billable calls carry the approved credit maximum and one stable operation key. R
 
 The bridge provides four local tools: `pixelbank_connect`, `pixelbank_disconnect`, `pixelbank_upload_image` and `pixelbank_open_workspace`. Other tools come from the authenticated server. Provider credentials, account administration and checkout are not exposed. Opening a workspace uses the default browser without controlling its active tab.
 
-## Licensing
+## More information
 
-The browser-login and recovery implementation derives from EncBird. Original notices and licenses are preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [LICENSE.encbird](LICENSE.encbird) and [bundled dependency licenses](dist/THIRD_PARTY_LICENSES.txt).
+See the [project documentation](https://github.com/haandol/pixelbank-plugin/tree/main/docs) for development and maintenance.

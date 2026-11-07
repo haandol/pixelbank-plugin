@@ -1,6 +1,8 @@
 # Workspace development and validation
 
-The layout follows EncBird Plugin: repository-level marketplace and development files wrap one self-contained installation package. A host installs `plugins/pixelbank`, whose MCP commands resolve `${PLUGIN_ROOT}/dist/index.js` or `${CLAUDE_PLUGIN_ROOT}/dist/index.js`. It receives the bundled runtime, skills, tool contracts and notices together.
+**English** · [한국어](development.ko.md)
+
+Repository-level marketplace and development files wrap one self-contained installation package. A host installs `plugins/pixelbank`, whose MCP commands resolve `${PLUGIN_ROOT}/dist/index.js` or `${CLAUDE_PLUGIN_ROOT}/dist/index.js`. It receives the bundled runtime, skills, tool contracts and notices together.
 
 | Location | Responsibility |
 | --- | --- |

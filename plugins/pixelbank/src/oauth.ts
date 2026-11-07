@@ -131,7 +131,7 @@ export async function discoveryKeys(config: OAuthConfig): Promise<URL> {
     return jwksUrl;
   } catch (error) {
     if (error instanceof SafeError && ['NETWORK_ERROR', 'OAUTH_VERIFICATION_UNAVAILABLE'].includes(error.code)) throw error;
-    throw new SafeError('INVALID_ID_TOKEN', 'Sign-in discovery did not match the configured issuer and endpoints. Ask the Pixelbank operator to repair configuration before retrying pixelbank_connect; preserve any cleanup records and do not substitute endpoints.');
+    throw new SafeError('INVALID_ID_TOKEN', 'Sign-in discovery did not match the configured issuer and endpoints. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connect; preserve any cleanup records and do not substitute endpoints.');
   }
 }
 export async function verifyIdentity(config: OAuthConfig, idToken: string | undefined, nonce?: string) {

@@ -24599,7 +24599,7 @@ var SafeError = class extends Error {
   credit_cost;
   retry_same_command;
 };
-var uncertainOutcome = "A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in Pixelbank first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.";
+var uncertainOutcome = "A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in PixelbankStudio first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.";
 var authCleanup = "Run pixelbank_disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the creator still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.";
 var storageRecovery = "Ask the local operator to restore safe access while preserving credential and lock files, which may retain pending revocation. Do not copy tokens, change the credential scope to bypass cleanup, or keep retrying before repair.";
 var authCancelled = () => new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
@@ -24798,11 +24798,11 @@ function validateOAuth(input, base) {
   base = validateBase(base);
   const data = object2(input);
   for (const key of ["issuer", "clientId", "authorizationEndpoint", "tokenEndpoint", "revocationEndpoint", "resource"]) {
-    if (typeof data[key] !== "string" || !data[key] || /\s/.test(data[key])) throw new SafeError("INVALID_CONFIG", "Sign-in configuration is missing or has invalid required fields. Ask the Pixelbank operator to repair the configuration, then retry pixelbank_connect; do not supply tokens or substitute endpoints.");
+    if (typeof data[key] !== "string" || !data[key] || /\s/.test(data[key])) throw new SafeError("INVALID_CONFIG", "Sign-in configuration is missing or has invalid required fields. Ask the PixelbankStudio operator to repair the configuration, then retry pixelbank_connect; do not supply tokens or substitute endpoints.");
   }
   const allowedScopes = /* @__PURE__ */ new Set(["openid", `${data.resource}/studio.read`, `${data.resource}/studio.write`, `${data.resource}/studio.execute`]);
   if (data.redirectUri !== REDIRECT_URI || !Array.isArray(data.scopes) || !data.scopes.includes("openid") || !data.scopes.includes(`${data.resource}/studio.read`) || new Set(data.scopes).size !== data.scopes.length || !data.scopes.every((scope) => typeof scope === "string" && allowedScopes.has(scope))) {
-    throw new SafeError("INVALID_CONFIG", "Sign-in requires openid, resource/studio.read, optional resource/studio.write, and the exact registered loopback redirect. Ask the Pixelbank operator to repair configuration before retrying pixelbank_connect; do not bypass scope or callback checks.");
+    throw new SafeError("INVALID_CONFIG", "Sign-in requires openid, resource/studio.read, optional resource/studio.write, and the exact registered loopback redirect. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connect; do not bypass scope or callback checks.");
   }
   const local = base !== DEFAULT_BASE;
   try {
@@ -24817,30 +24817,30 @@ function validateOAuth(input, base) {
     const authOrigin = new URL(data.authorizationEndpoint).origin;
     if ([data.tokenEndpoint, data.revocationEndpoint].some((url2) => new URL(url2).origin !== authOrigin)) throw new Error();
   } catch {
-    throw new SafeError("INVALID_CONFIG", "Sign-in endpoints failed trust validation. Stop sign-in and ask the Pixelbank operator to repair the configuration before retrying pixelbank_connect; do not bypass validation or substitute endpoints.");
+    throw new SafeError("INVALID_CONFIG", "Sign-in endpoints failed trust validation. Stop sign-in and ask the PixelbankStudio operator to repair the configuration before retrying pixelbank_connect; do not bypass validation or substitute endpoints.");
   }
   return data;
 }
 async function bootstrap(base) {
   base = validateBase(base);
   const { status, body } = await requestJson(`${base}/config`);
-  if (status !== 200) throw new SafeError("CONFIG_UNAVAILABLE", "Pixelbank sign-in configuration could not be loaded. Retry pixelbank_connect after service access is restored; ask the Pixelbank operator if it persists. Do not substitute endpoints or credentials.");
+  if (status !== 200) throw new SafeError("CONFIG_UNAVAILABLE", "PixelbankStudio sign-in configuration could not be loaded. Retry pixelbank_connect after service access is restored; ask the PixelbankStudio operator if it persists. Do not substitute endpoints or credentials.");
   const data = object2(body);
-  if (data.apiVersion !== "1") throw new SafeError("API_VERSION_UNSUPPORTED", "This plugin requires Pixelbank API version 1, but the service did not advertise it. Ask the operator to install a compatible plugin and service before retrying pixelbank_connect.");
+  if (data.apiVersion !== "1") throw new SafeError("API_VERSION_UNSUPPORTED", "This plugin requires PixelbankStudio API version 1, but the service did not advertise it. Ask the operator to install a compatible plugin and service before retrying pixelbank_connect.");
   return validateOAuth(data.oauth, base);
 }
 
 // src/api-errors.ts
 var messages = {
-  AUTH_REQUIRED: "Pixelbank rejected authorization. Ask the Pixelbank operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connect to resume retained setup or recovery, or pixelbank_disconnect to finish cleanup. Preserve credential records.",
+  AUTH_REQUIRED: "PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connect to resume retained setup or recovery, or pixelbank_disconnect to finish cleanup. Preserve credential records.",
   CONNECTION_INACTIVE: "This connection has been revoked. Reconnect with the same account before using creative tools.",
   CONNECTION_FORBIDDEN: "The granted scopes do not permit this operation.",
-  NOT_ENOUGH_CREDIT: "There are not enough credits. Top up in Pixelbank before retrying the original operation.",
+  NOT_ENOUGH_CREDIT: "There are not enough credits. Top up in PixelbankStudio before retrying the original operation.",
   FREE_TRIAL_UNAVAILABLE: "Free-use availability could not be confirmed. Paid fallback requires separate consent for this operation.",
   CREDIT_PRICE_CHANGED: "The current price exceeds the approved amount. Review a new quote before authorizing execution.",
   MCP_APPROVAL_INVALID: "Review and authorize the exact operation and credit amount before execution.",
   IDEMPOTENCY_KEY_CONFLICT: "This operation key belongs to different inputs. Recover the original request and result.",
-  ALREADY_PROCESSED: "This operation is already recorded and was not run again. Check available results or the workflow in Pixelbank. Do not automatically resubmit with a new operation key; a new operation requires explicit user intent.",
+  ALREADY_PROCESSED: "This operation is already recorded and was not run again. Check available results or the workflow in PixelbankStudio. Do not automatically resubmit with a new operation key; a new operation requires explicit user intent.",
   WORKFLOW_CONFLICT: "The workflow changed. Reload its acknowledged state before choosing the next action.",
   WORKSPACE_CONFLICT: "This workspace preparation conflicts with an existing request or newer workflow revision.",
   WORKSPACE_UNAVAILABLE: "The prepared workspace or one of its owned source assets is unavailable."
@@ -24849,7 +24849,7 @@ function apiError(status, code, headerPause, structuredPause, details = {}) {
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code)) code = "API_ERROR";
   if (status === 401) return new SafeError("AUTH_REQUIRED", messages.AUTH_REQUIRED);
   if ((status === 429 || status === 503) && code === "API_ERROR") code = status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE";
-  const error2 = new SafeError(code, messages[code] ?? `Pixelbank could not complete the operation (${code}). ${uncertainOutcome}`, void 0, details);
+  const error2 = new SafeError(code, messages[code] ?? `PixelbankStudio could not complete the operation (${code}). ${uncertainOutcome}`, void 0, details);
   if (status === 429 || status === 503 || code === "RATE_LIMITED") {
     const valid = (n) => typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 86400;
     const delays = [headerPause, structuredPause, details.retry_after_seconds, details.retry_after];
@@ -24869,7 +24869,7 @@ async function apiRequest(base, token, method, path, body) {
     const prefix = api.pathname.replace(/\/$/, "");
     if (url2.origin !== api.origin || url2.pathname !== `${prefix}${path.split("?")[0]}` || !url2.pathname.startsWith(`${prefix}/`)) throw new Error();
   } catch {
-    throw new SafeError("INVALID_ROUTE", "The requested API route is not allowed. Discover and use the supported Pixelbank tools; ask the plugin operator to repair routing before retrying. Do not substitute a direct route. This call sent no request.");
+    throw new SafeError("INVALID_ROUTE", "The requested API route is not allowed. Discover and use the supported PixelbankStudio tools; ask the plugin operator to repair routing before retrying. Do not substitute a direct route. This call sent no request.");
   }
   const { status, body: response, retryAfterSeconds: retryAfterSeconds2 } = await requestJson(url2.href, {
     method,
@@ -24891,7 +24891,7 @@ async function apiRequest(base, token, method, path, body) {
   }
   if (status === 204) return null;
   const envelope = object2(response);
-  if (!Object.hasOwn(envelope, "data") || Object.hasOwn(envelope, "error")) throw new SafeError("INVALID_RESPONSE", `Pixelbank returned an invalid data envelope. Ask the operator to align the plugin and service response before retrying. ${uncertainOutcome}`);
+  if (!Object.hasOwn(envelope, "data") || Object.hasOwn(envelope, "error")) throw new SafeError("INVALID_RESPONSE", `PixelbankStudio returned an invalid data envelope. Ask the operator to align the plugin and service response before retrying. ${uncertainOutcome}`);
   return envelope.data;
 }
 
@@ -25067,7 +25067,7 @@ async function discoveryKeys(config2) {
     return jwksUrl;
   } catch (error2) {
     if (error2 instanceof SafeError && ["NETWORK_ERROR", "OAUTH_VERIFICATION_UNAVAILABLE"].includes(error2.code)) throw error2;
-    throw new SafeError("INVALID_ID_TOKEN", "Sign-in discovery did not match the configured issuer and endpoints. Ask the Pixelbank operator to repair configuration before retrying pixelbank_connect; preserve any cleanup records and do not substitute endpoints.");
+    throw new SafeError("INVALID_ID_TOKEN", "Sign-in discovery did not match the configured issuer and endpoints. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connect; preserve any cleanup records and do not substitute endpoints.");
   }
 }
 async function verifyIdentity(config2, idToken, nonce) {
@@ -41505,7 +41505,7 @@ async function listRemoteTools(base, token, options = {}) {
   }, options);
 }
 async function callRemoteTool(base, token, name, input, options = {}) {
-  if (!TOOL_NAME.test(name)) throw new SafeError("INVALID_TOOL", "Choose a published Pixelbank creative tool.");
+  if (!TOOL_NAME.test(name)) throw new SafeError("INVALID_TOOL", "Choose a published PixelbankStudio creative tool.");
   return withRemote(base, token, async (client) => {
     const result = await client.callTool({ name, arguments: input }, { timeout: options.timeoutMs ?? OPERATION_TIMEOUT_MS, signal: options.signal, onprogress: options.onProgress, allowInputRequired: true });
     if (!("content" in result)) throw new SafeError("INPUT_REQUIRED", "This operation requires additional user input before it can run.");
@@ -41714,7 +41714,7 @@ var Connection = class {
   }
   confirmRevoked(result, grant) {
     const data = object2(result);
-    if (data.status !== "revoked" || typeof data.connectionId !== "string" || !data.connectionId || grant.connectionId && data.connectionId !== grant.connectionId) throw new SafeError("INVALID_CONNECTION", "Pixelbank did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_disconnect after service recovery; ask the Pixelbank operator if confirmation still fails. Do not claim the connection is revoked.");
+    if (data.status !== "revoked" || typeof data.connectionId !== "string" || !data.connectionId || grant.connectionId && data.connectionId !== grant.connectionId) throw new SafeError("INVALID_CONNECTION", "PixelbankStudio did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_disconnect after service recovery; ask the PixelbankStudio operator if confirmation still fails. Do not claim the connection is revoked.");
   }
   async previousConnectionId(root, grant) {
     if (grant.connectionId !== void 0) {
@@ -41757,7 +41757,7 @@ var Connection = class {
   }
   async revokeProvider(root, grant) {
     const cleanup = grant.cleanup ??= fullCleanup();
-    if (cleanup.backend) throw new SafeError("CLEANUP_REQUIRED", "Pixelbank connection revocation is still pending. Run pixelbank_disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connect with the same account. Sign-in cleanup can finish only after Pixelbank confirms revocation.");
+    if (cleanup.backend) throw new SafeError("CLEANUP_REQUIRED", "PixelbankStudio connection revocation is still pending. Run pixelbank_disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connect with the same account. Sign-in cleanup can finish only after PixelbankStudio confirms revocation.");
     delete grant.accessToken;
     grant.expiresAt = 0;
     await this.tx.save(root);
@@ -41807,7 +41807,7 @@ var Connection = class {
     await this.ensureAccess(value, candidate.grant);
     const result = object2(await apiRequest(this.base, candidate.grant.accessToken, "POST", "/connections", {}));
     if (result.status !== "active" || typeof result.connectionId !== "string" || !result.connectionId || result.userId !== value.subject) {
-      throw new SafeError("INVALID_CONNECTION", `Pixelbank returned an invalid connection confirmation or an unexpected identity. ${authCleanup}`);
+      throw new SafeError("INVALID_CONNECTION", `PixelbankStudio returned an invalid connection confirmation or an unexpected identity. ${authCleanup}`);
     }
     if (signal?.aborted) throw authCancelled();
     const active = { ...candidate.grant, version: 1, status: "active", connectionId: result.connectionId };
@@ -41899,7 +41899,7 @@ var Connection = class {
       if (error2 instanceof SafeError && error2.code === "AUTH_REQUIRED") {
         value.expiresAt = 0;
         await this.tx.save(value);
-        throw new SafeError(error2.code, "Pixelbank rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connect recovery instructions. Never copy tokens or bypass sign-in.");
+        throw new SafeError(error2.code, "PixelbankStudio rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connect recovery instructions. Never copy tokens or bypass sign-in.");
       }
       if (error2 instanceof SafeError && error2.code === "CONNECTION_INACTIVE") {
         value.status = "disabled";
@@ -43326,7 +43326,7 @@ function validateWorkspaceURL(value, _base, workspaceId) {
   if (url2.origin !== "https://www.pixelbankstudio.com" || url2.username || url2.password || url2.hash || !["/segment", "/generation"].includes(url2.pathname) || !WORKSPACE_ID.test(url2.searchParams.get("workspace") ?? "") || [...url2.searchParams.keys()].some((key) => !["workspace", "workflow", "step"].includes(key)) || ["workspace", "workflow", "step"].some((key) => url2.searchParams.getAll(key).length > 1) || workspaceId !== void 0 && url2.searchParams.get("workspace") !== workspaceId || ["workflow", "step"].some(
     (key) => url2.searchParams.has(key) && !/^[a-zA-Z0-9_-]{1,128}$/.test(url2.searchParams.get(key))
   )) {
-    throw new SafeError("INVALID_WORKSPACE", "The workspace URL does not belong to the supported Pixelbank editor.");
+    throw new SafeError("INVALID_WORKSPACE", "The workspace URL does not belong to the supported PixelbankStudio editor.");
   }
   return url2.href;
 }
@@ -43336,7 +43336,7 @@ var internalUploadTools = ["pixelbank_issue_upload", "pixelbank_save_source"];
 var localTools = [
   {
     name: "pixelbank_upload_image",
-    description: "Upload an explicitly selected local PNG, JPEG or WebP image to Pixelbank. Use workflow-input and save_source=true to prepare a persistent web-workspace source.",
+    description: "Upload an explicitly selected local PNG, JPEG or WebP image to PixelbankStudio. Use workflow-input and save_source=true to prepare a persistent web-workspace source.",
     inputSchema: {
       type: "object",
       properties: {
@@ -43350,17 +43350,17 @@ var localTools = [
   },
   {
     name: "pixelbank_connect",
-    description: "Connect Pixelbank through browser sign-in, or check a sign-in already in progress.",
+    description: "Connect PixelbankStudio through browser sign-in, or check a sign-in already in progress.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
     name: "pixelbank_disconnect",
-    description: "Revoke this Pixelbank connection and remove its local credentials. Accepted creative jobs retain their existing lifecycle.",
+    description: "Revoke this PixelbankStudio connection and remove its local credentials. Accepted creative jobs retain their existing lifecycle.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
     name: "pixelbank_open_workspace",
-    description: "Open an owned prepared Pixelbank workspace in the default browser. Opening applies initial settings and never starts paid processing.",
+    description: "Open an owned prepared PixelbankStudio workspace in the default browser. Opening applies initial settings and never starts paid processing.",
     inputSchema: {
       type: "object",
       properties: { workspace_id: { type: "string", pattern: WORKSPACE_ID.source } },
@@ -43387,7 +43387,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   const server = new Server({ name: "pixelbank", version: "0.1.0" }, {
     supportedProtocolVersions: ["2026-07-28", "2025-11-25"],
     capabilities: { tools: { listChanged: true } },
-    instructions: "Use Pixelbank for creative operations and workflows. Complex visual editing continues in a prepared Pixelbank web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools."
+    instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools."
   });
   let catalog = [];
   server.onclose = () => {
@@ -43430,7 +43430,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
       } else {
         if (isInternalUploadTool(name)) throw new SafeError("UNKNOWN_TOOL", "Use pixelbank_upload_image for an explicitly selected local image.");
         if (!catalog.some((tool) => tool.name === name)) catalog = await discover(extra.mcpReq.signal);
-        if (!catalog.some((tool) => tool.name === name)) throw new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated Pixelbank catalog.");
+        if (!catalog.some((tool) => tool.name === name)) throw new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated PixelbankStudio catalog.");
         value = await auth2.callCreativeTool(name, input, options);
       }
     } catch (error2) {

@@ -147,7 +147,7 @@ export class Connection {
   private confirmRevoked(result: unknown, grant: Grant) {
     const data = object(result);
     if (data.status !== 'revoked' || typeof data.connectionId !== 'string' || !data.connectionId ||
-        (grant.connectionId && data.connectionId !== grant.connectionId)) throw new SafeError('INVALID_CONNECTION', 'Pixelbank did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_disconnect after service recovery; ask the Pixelbank operator if confirmation still fails. Do not claim the connection is revoked.');
+        (grant.connectionId && data.connectionId !== grant.connectionId)) throw new SafeError('INVALID_CONNECTION', 'PixelbankStudio did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_disconnect after service recovery; ask the PixelbankStudio operator if confirmation still fails. Do not claim the connection is revoked.');
   }
   private async previousConnectionId(root: Credentials, grant: Grant) {
     if (grant.connectionId !== undefined) {
@@ -185,7 +185,7 @@ export class Connection {
   }
   private async revokeProvider(root: Credentials, grant: Grant) {
     const cleanup = grant.cleanup ??= fullCleanup();
-    if (cleanup.backend) throw new SafeError('CLEANUP_REQUIRED', 'Pixelbank connection revocation is still pending. Run pixelbank_disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connect with the same account. Sign-in cleanup can finish only after Pixelbank confirms revocation.');
+    if (cleanup.backend) throw new SafeError('CLEANUP_REQUIRED', 'PixelbankStudio connection revocation is still pending. Run pixelbank_disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connect with the same account. Sign-in cleanup can finish only after PixelbankStudio confirms revocation.');
     delete grant.accessToken; grant.expiresAt = 0; await this.tx.save(root);
     if (cleanup.provider) {
       if (grant.refreshToken) await revoke(grant.oauth, grant.refreshToken);
@@ -222,7 +222,7 @@ export class Connection {
     await this.ensureAccess(value, candidate.grant);
     const result = object(await apiRequest(this.base, candidate.grant.accessToken!, 'POST', '/connections', {}));
     if (result.status !== 'active' || typeof result.connectionId !== 'string' || !result.connectionId || result.userId !== value.subject) {
-      throw new SafeError('INVALID_CONNECTION', `Pixelbank returned an invalid connection confirmation or an unexpected identity. ${authCleanup}`);
+      throw new SafeError('INVALID_CONNECTION', `PixelbankStudio returned an invalid connection confirmation or an unexpected identity. ${authCleanup}`);
     }
     if (signal?.aborted) throw authCancelled();
     const active: Credentials = { ...candidate.grant, version: 1, status: 'active', connectionId: result.connectionId };
@@ -294,7 +294,7 @@ export class Connection {
       }
       if (error instanceof SafeError && error.code === 'AUTH_REQUIRED') {
         value.expiresAt = 0; await this.tx.save(value);
-        throw new SafeError(error.code, 'Pixelbank rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connect recovery instructions. Never copy tokens or bypass sign-in.');
+        throw new SafeError(error.code, 'PixelbankStudio rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connect recovery instructions. Never copy tokens or bypass sign-in.');
       }
       if (error instanceof SafeError && error.code === 'CONNECTION_INACTIVE') {
         value.status = 'disabled'; value.cleanup = fullCleanup(); await this.tx.save(value); await this.cleanup(value);

@@ -21,13 +21,13 @@ export function validateOAuth(input: unknown, base: string): OAuthConfig {
   base = validateBase(base);
   const data = object(input);
   for (const key of ['issuer', 'clientId', 'authorizationEndpoint', 'tokenEndpoint', 'revocationEndpoint', 'resource']) {
-    if (typeof data[key] !== 'string' || !data[key] || /\s/.test(data[key] as string)) throw new SafeError('INVALID_CONFIG', 'Sign-in configuration is missing or has invalid required fields. Ask the Pixelbank operator to repair the configuration, then retry pixelbank_connect; do not supply tokens or substitute endpoints.');
+    if (typeof data[key] !== 'string' || !data[key] || /\s/.test(data[key] as string)) throw new SafeError('INVALID_CONFIG', 'Sign-in configuration is missing or has invalid required fields. Ask the PixelbankStudio operator to repair the configuration, then retry pixelbank_connect; do not supply tokens or substitute endpoints.');
   }
   const allowedScopes = new Set(['openid', `${data.resource}/studio.read`, `${data.resource}/studio.write`, `${data.resource}/studio.execute`]);
   if (data.redirectUri !== REDIRECT_URI || !Array.isArray(data.scopes) || !data.scopes.includes('openid') ||
       !data.scopes.includes(`${data.resource}/studio.read`) || new Set(data.scopes).size !== data.scopes.length ||
       !data.scopes.every(scope => typeof scope === 'string' && allowedScopes.has(scope))) {
-    throw new SafeError('INVALID_CONFIG', 'Sign-in requires openid, resource/studio.read, optional resource/studio.write, and the exact registered loopback redirect. Ask the Pixelbank operator to repair configuration before retrying pixelbank_connect; do not bypass scope or callback checks.');
+    throw new SafeError('INVALID_CONFIG', 'Sign-in requires openid, resource/studio.read, optional resource/studio.write, and the exact registered loopback redirect. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connect; do not bypass scope or callback checks.');
   }
   const local = base !== DEFAULT_BASE;
   try {
@@ -42,14 +42,14 @@ export function validateOAuth(input: unknown, base: string): OAuthConfig {
     }
     const authOrigin = new URL(data.authorizationEndpoint as string).origin;
     if ([data.tokenEndpoint, data.revocationEndpoint].some(url => new URL(url as string).origin !== authOrigin)) throw new Error();
-  } catch { throw new SafeError('INVALID_CONFIG', 'Sign-in endpoints failed trust validation. Stop sign-in and ask the Pixelbank operator to repair the configuration before retrying pixelbank_connect; do not bypass validation or substitute endpoints.'); }
+  } catch { throw new SafeError('INVALID_CONFIG', 'Sign-in endpoints failed trust validation. Stop sign-in and ask the PixelbankStudio operator to repair the configuration before retrying pixelbank_connect; do not bypass validation or substitute endpoints.'); }
   return data as unknown as OAuthConfig;
 }
 export async function bootstrap(base: string): Promise<OAuthConfig> {
   base = validateBase(base);
   const { status, body } = await requestJson(`${base}/config`);
-  if (status !== 200) throw new SafeError('CONFIG_UNAVAILABLE', 'Pixelbank sign-in configuration could not be loaded. Retry pixelbank_connect after service access is restored; ask the Pixelbank operator if it persists. Do not substitute endpoints or credentials.');
+  if (status !== 200) throw new SafeError('CONFIG_UNAVAILABLE', 'PixelbankStudio sign-in configuration could not be loaded. Retry pixelbank_connect after service access is restored; ask the PixelbankStudio operator if it persists. Do not substitute endpoints or credentials.');
   const data = object(body);
-  if (data.apiVersion !== '1') throw new SafeError('API_VERSION_UNSUPPORTED', 'This plugin requires Pixelbank API version 1, but the service did not advertise it. Ask the operator to install a compatible plugin and service before retrying pixelbank_connect.');
+  if (data.apiVersion !== '1') throw new SafeError('API_VERSION_UNSUPPORTED', 'This plugin requires PixelbankStudio API version 1, but the service did not advertise it. Ask the operator to install a compatible plugin and service before retrying pixelbank_connect.');
   return validateOAuth(data.oauth, base);
 }

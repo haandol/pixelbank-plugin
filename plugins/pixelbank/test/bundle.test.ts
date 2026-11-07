@@ -101,8 +101,8 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
     };
     const result = await client.callTool({ name, arguments: input });
     const expected = { error: { code, message: code === 'ALREADY_PROCESSED'
-      ? 'This operation is already recorded and was not run again. Check available results or the workflow in Pixelbank. Do not automatically resubmit with a new operation key; a new operation requires explicit user intent.'
-      : code === 'RATE_LIMITED' ? `Pixelbank could not complete the operation (RATE_LIMITED). ${uncertainOutcome}`
+      ? 'This operation is already recorded and was not run again. Check available results or the workflow in PixelbankStudio. Do not automatically resubmit with a new operation key; a new operation requires explicit user intent.'
+      : code === 'RATE_LIMITED' ? `PixelbankStudio could not complete the operation (RATE_LIMITED). ${uncertainOutcome}`
         : 'Free-use availability could not be confirmed. Paid fallback requires separate consent for this operation.', ...testCase.expected } };
     assert.equal(result.isError, true, testCase.label);
     assert.deepEqual(result.structuredContent, expected, testCase.label);

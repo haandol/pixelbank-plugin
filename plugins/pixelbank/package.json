@@ -2,7 +2,7 @@
   "name": "pixelbank-creative-plugin",
   "version": "0.1.0",
   "private": true,
-  "description": "Pixelbank creative workflows through MCP and prepared web workspaces.",
+  "description": "PixelbankStudio creative workflows through MCP and prepared web workspaces.",
   "type": "module",
   "engines": {
     "node": ">=24 <25"

@@ -16,7 +16,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
   const auth = dependencies.auth ?? new Auth(base, new CredentialStore(base, profile, secrets), secrets);
   const browser = dependencies.browser ?? openBrowser;
   const server = new Server({ name: 'pixelbank', version: '0.1.0' }, { supportedProtocolVersions: ['2026-07-28', '2025-11-25'], capabilities: { tools: { listChanged: true } },
-    instructions: 'Use Pixelbank for creative operations and workflows. Complex visual editing continues in a prepared Pixelbank web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools.' });
+    instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools.' });
   let catalog: Awaited<ReturnType<Auth['listCreativeTools']>> = [];
   server.onclose = () => { void auth.cancel(); };
   const discover = async (signal?: AbortSignal) => {
@@ -50,7 +50,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
       } else {
         if (isInternalUploadTool(name)) throw new SafeError('UNKNOWN_TOOL', 'Use pixelbank_upload_image for an explicitly selected local image.');
         if (!catalog.some(tool => tool.name === name)) catalog = await discover(extra.mcpReq.signal);
-        if (!catalog.some(tool => tool.name === name)) throw new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated Pixelbank catalog.');
+        if (!catalog.some(tool => tool.name === name)) throw new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
         value = await auth.callCreativeTool(name, input, options);
       }
     } catch (error) { value = safeError(error); }

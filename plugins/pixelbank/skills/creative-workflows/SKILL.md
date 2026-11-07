@@ -1,9 +1,11 @@
 ---
 name: pixelbank-creative-workflows
-description: Create and reuse Pixelbank images and workflows through MCP, handing visual selection and layered composition to a prepared Pixelbank web workspace.
+description: Create and reuse PixelbankStudio images and workflows through MCP, handing visual selection and layered composition to a prepared PixelbankStudio web workspace.
 ---
 
-Use Pixelbank's authenticated tools for the creator's task. Read the current tool catalog and account state before relying on availability, price or free uses. Use only tools actually advertised by the service.
+Use the official name PixelbankStudio in customer-facing replies. Support English and Korean, responding in the creator's language while preserving tool identifiers and structured values.
+
+Use PixelbankStudio's authenticated tools for the creator's task. Read the current tool catalog and account state before relying on availability, price or free uses. Use only tools actually advertised by the service.
 
 This release supports images, animation and their workflows. Space, previsualization, video import and video generation execution are unavailable through MCP. Do not route those requests through another tool or an arbitrary API call.
 
@@ -23,9 +25,9 @@ Read current prices and free uses. Explain the processing outcome and cost befor
 
 For retries, retain the complete original request, operation key, budget and workflow context. An unknown outcome is not a failed job. Recover the original job or existing result; do not create a new key to repeat a possibly accepted operation. A new intentional generation using identical inputs still needs the existing duplicate-submission confirmation.
 
-## Continue visual editing in Pixelbank
+## Continue visual editing in PixelbankStudio
 
-Background removal and other fully specified operations can run directly. Interactive segmentation and layered image composition use the Pixelbank web editor when visual control is needed. Do not imply that a plain prompt recreates an unprovided selection mask or composition.
+Background removal and other fully specified operations can run directly. Interactive segmentation and layered image composition use the PixelbankStudio web editor when visual control is needed. Do not imply that a plain prompt recreates an unprovided selection mask or composition.
 
 Prepare the workspace with owned asset references and the agreed settings. Generation preparation can carry ordered images, layer/object roles, names, normalized position/size, visibility, locks, canvas framing and the draft prompt. Use the current supported schema; the web editor currently does not support nonzero layer rotation. An object reference requires its name, and at most five object references are accepted. Ordinary composed layers do not spend that reference budget.
 

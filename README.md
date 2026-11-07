@@ -1,25 +1,27 @@
 <p align="center">
   <a href="https://www.pixelbankstudio.com">
-    <img src="plugins/pixelbank/assets/icon.png" alt="Pixelbank" width="96" height="96">
+    <img src="plugins/pixelbank/assets/icon.png" alt="PixelbankStudio" width="96" height="96">
   </a>
 </p>
 
-<h1 align="center">Pixelbank Plugin</h1>
+<h1 align="center">PixelbankStudio Plugin</h1>
+
+<p align="center"><strong>English</strong> · <a href="README.ko.md">한국어</a></p>
 
 <p align="center">Make images and animations from Codex or Claude Code.</p>
 
 <p align="center">
-  <a href="https://www.pixelbankstudio.com">Pixelbank Studio</a> ·
+  <a href="https://www.pixelbankstudio.com">PixelbankStudio</a> ·
   <a href="#quickstart">Quickstart</a> ·
   <a href="#examples">Examples</a> ·
   <a href="https://github.com/haandol/pixelbank-plugin/issues">Help & feedback</a>
 </p>
 
-Start with a prompt or a picture. Generate an image, remove its background, or turn a character into an animation. Save your results in Pixelbank and use them again in your next project.
+Start with a prompt or a picture. Generate an image, remove its background, or turn a character into an animation. Save your results in PixelbankStudio and use them again in your next project.
 
 ## Quickstart
 
-You'll need **Node.js 24**, **macOS or Linux**, a Pixelbank account, and Codex or Claude Code.
+You'll need **Node.js 24**, **macOS or Linux**, a PixelbankStudio account, and Codex or Claude Code.
 
 ### Codex
 
@@ -37,7 +39,7 @@ claude plugin install pixelbank@pixelbank
 
 Then ask your assistant:
 
-> Connect my Pixelbank account.
+> Connect my PixelbankStudio account.
 
 Finish signing in in your browser, then ask the assistant to check the connection.
 
@@ -73,15 +75,15 @@ In this test, only the selected frame was replaced; the other 15 kept their save
 
 ## Continue in the editor
 
-To arrange an image or refine a selection by hand, continue in Pixelbank's web editor.
+To arrange an image or refine a selection by hand, continue in PixelbankStudio's web editor.
 
-> Open this robot image in Pixelbank so I can adjust the layout.
+> Open this robot image in PixelbankStudio so I can adjust the layout.
 
 The assistant can prepare your images and draft prompt before opening it. You can then move layers, resize them, or add visual instructions.
 
-<img src="assets/readme/studio-editor.jpg" alt="A real Pixelbank editor screenshot with the tested robot image selected on the canvas and a draft instruction below" width="900">
+<img src="assets/readme/studio-editor.jpg" alt="A real PixelbankStudio editor screenshot with the tested robot image selected on the canvas and a draft instruction below" width="900">
 
-*The test image loaded into Pixelbank's web editor. The draft instruction has not been submitted.*
+*The test image loaded into PixelbankStudio's web editor. The draft instruction has not been submitted.*
 
 Opening a prepared workspace doesn't spend credits. Its link restores the initial setup; later canvas edits aren't autosaved by that link. For a longer task, ask for a food-promotion, product-background, or banner workflow to keep its inputs and selected results together.
 
@@ -90,14 +92,14 @@ Opening a prepared workspace doesn't spend credits. Its link restores the initia
 <details>
 <summary><strong>Do I need my own AI API keys?</strong></summary>
 
-No. Connect your Pixelbank account through browser sign-in. Keep passwords and tokens out of the conversation.
+No. Connect your PixelbankStudio account through browser sign-in. Keep passwords and tokens out of the conversation.
 
 </details>
 
 <details>
 <summary><strong>When are credits used?</strong></summary>
 
-The assistant checks the current price and available free uses before processing. It asks before spending credits unless you've enabled automatic confirmation in Pixelbank. If free-use availability can't be checked, a paid fallback still needs your approval. Browsing, quotes, and preparing or opening an editor workspace don't spend credits. See [pricing](https://www.pixelbankstudio.com/pricing).
+The assistant checks the current price and available free uses before processing. It asks before spending credits unless you've enabled automatic confirmation in PixelbankStudio. If free-use availability can't be checked, a paid fallback still needs your approval. Browsing, quotes, and preparing or opening an editor workspace don't spend credits. See [pricing](https://www.pixelbankstudio.com/pricing).
 
 </details>
 
@@ -111,8 +113,8 @@ Images, animations, saved image workflows, and prepared web workspaces. Local up
 <details>
 <summary><strong>How do I disconnect or get help?</strong></summary>
 
-Ask “Disconnect Pixelbank” and wait for confirmation that cleanup is complete. If an operation is interrupted, ask the assistant to check the existing job before retrying. See the [usage and recovery guide](plugins/pixelbank/README.md) or [open an issue](https://github.com/haandol/pixelbank-plugin/issues).
+Ask “Disconnect PixelbankStudio” and wait for confirmation that cleanup is complete. If an operation is interrupted, ask the assistant to check the existing job before retrying. See the [usage and recovery guide](plugins/pixelbank/README.md) or [open an issue](https://github.com/haandol/pixelbank-plugin/issues).
 
 </details>
 
-For contributors: [development documentation](docs/README.md). Browser sign-in and recovery derive from EncBird; see the [source notices](THIRD_PARTY_NOTICES.md), [EncBird license](LICENSE.encbird), and [bundled dependency licenses](plugins/pixelbank/dist/THIRD_PARTY_LICENSES.txt).
+For contributors: [development documentation](docs/README.md).

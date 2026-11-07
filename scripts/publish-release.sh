@@ -64,7 +64,7 @@ if gh release view "$task_tag" -R "$task_repository" >/dev/null 2>&1; then
     verify_published
 else
     gh release create "$task_tag" -R "$task_repository" --verify-tag \
-        --title "Pixelbank Plugin $task_version" --notes-file "$task_out/notes.md" \
+        --title "PixelbankStudio Plugin $task_version" --notes-file "$task_out/notes.md" \
         "$task_out/$task_zip" "$task_out/SHA256SUMS" >&2
     verify_published
 fi

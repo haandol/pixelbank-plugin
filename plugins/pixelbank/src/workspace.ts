@@ -67,7 +67,7 @@ export function validateWorkspaceURL(value: unknown, _base: string, workspaceId?
       (key) => url.searchParams.has(key) && !/^[a-zA-Z0-9_-]{1,128}$/.test(url.searchParams.get(key)!),
     )
   ) {
-    throw new SafeError('INVALID_WORKSPACE', 'The workspace URL does not belong to the supported Pixelbank editor.');
+    throw new SafeError('INVALID_WORKSPACE', 'The workspace URL does not belong to the supported PixelbankStudio editor.');
   }
   return url.href;
 }

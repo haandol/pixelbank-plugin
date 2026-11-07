@@ -1,9 +1,9 @@
 {
   "name": "pixelbank",
   "version": "0.1.0",
-  "description": "Create and reuse Pixelbank assets through MCP, with prepared web workspaces for visual editing.",
+  "description": "Create and reuse PixelbankStudio assets through MCP, with prepared web workspaces for visual editing.",
   "author": {
-    "name": "Pixelbank",
+    "name": "PixelbankStudio",
     "url": "https://www.pixelbankstudio.com"
   },
   "homepage": "https://www.pixelbankstudio.com",
@@ -28,9 +28,9 @@
     }
   },
   "interface": {
-    "displayName": "Pixelbank",
-    "shortDescription": "Creative tools and prepared web workspaces",
-    "developerName": "Pixelbank",
+    "displayName": "PixelbankStudio",
+    "shortDescription": "Images & animation · 이미지·애니메이션",
+    "developerName": "PixelbankStudio",
     "category": "Productivity",
     "capabilities": [
       "Read",
@@ -38,7 +38,8 @@
     ],
     "websiteURL": "https://www.pixelbankstudio.com",
     "defaultPrompt": [
-      "Help me create a promotional image with Pixelbank."
+      "Help me create a promotional image with PixelbankStudio.",
+      "PixelbankStudio로 홍보용 이미지를 만들어 줘."
     ],
     "logo": "./assets/icon.png",
     "composerIcon": "./assets/icon-small.png"
