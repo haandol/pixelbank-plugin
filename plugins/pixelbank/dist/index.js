@@ -24682,6 +24682,17 @@ async function openCreditsPage(browser) {
     } };
   }
 }
+async function recoverCreditShortage(error, browser) {
+  const failure = safeError(error);
+  if (!(error instanceof SafeError && error.code === "NOT_ENOUGH_CREDIT"))
+    return failure;
+  const recovery = await openCreditsPage(browser);
+  return { error: {
+    ...failure.error,
+    credits_url: recovery.data.url,
+    credits_page_opened: recovery.data.opened
+  } };
+}
 
 // src/api-errors.ts
 var messages = {
@@ -43423,16 +43434,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
         value = await auth.callCreativeTool(name, input, options);
       }
     } catch (error) {
-      const failure = safeError(error);
-      if (error instanceof SafeError && error.code === "NOT_ENOUGH_CREDIT") {
-        const recovery = await openCreditsPage(browser);
-        value = { error: {
-          ...failure.error,
-          credits_url: recovery.data.url,
-          credits_page_opened: recovery.data.opened
-        } };
-      } else
-        value = failure;
+      value = await recoverCreditShortage(error, browser);
     }
     const clean = secrets.clean(value);
     return { content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean, isError: "error" in clean };

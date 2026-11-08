@@ -11,7 +11,7 @@
     "proper-lockfile": "4.1.2",
     "zod": "4.6.7"
   },
-  "bundleSha256": "d0b0430fcbf6cde407c7f920ada0c2c871d83f03f5472d69edb6e4da48cb3284",
+  "bundleSha256": "d74bcf9a47721693ef14c32fb0888cdee6df9d3b3980ab0c7986246b828983c8",
   "contractsSha256": "f44bd8738d0c2ee1884bb8f8dd1bf427b382a37413c6b9dc256dbb443250201f",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/client/dist/ajvProvider-BIwGVY6G.mjs",

@@ -2,12 +2,12 @@ import { Server } from '@modelcontextprotocol/server';
 import { Auth } from './auth.js';
 import { CredentialStore } from './store.js';
 import { resolveBase, validateBase } from './config.js';
-import { SafeError, Secrets, safeError } from './errors.js';
+import { SafeError, Secrets } from './errors.js';
 import { openBrowser } from './oauth.js';
 import { parseUploadInput, uploadImage } from './upload.js';
 import { localTools, isInternalUploadTool, assertNoLocalOverrides } from './catalog.js';
 import { openPreparedWorkspace } from './workspace.js';
-import { openCreditsPage } from './credits.js';
+import { openCreditsPage, recoverCreditShortage } from './credits.js';
 export { validateWorkspaceURL } from './workspace.js';
 
 /** The local server bridges only the authenticated remote catalog and local connection actions. */
@@ -57,14 +57,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
         if (!catalog.some(tool => tool.name === name)) throw new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
         value = await auth.callCreativeTool(name, input, options);
       }
-    } catch (error) {
-      const failure = safeError(error);
-      if (error instanceof SafeError && error.code === 'NOT_ENOUGH_CREDIT') {
-        const recovery = await openCreditsPage(browser);
-        value = { error: { ...failure.error, credits_url: recovery.data.url,
-          credits_page_opened: recovery.data.opened } };
-      } else value = failure;
-    }
+    } catch (error) { value = await recoverCreditShortage(error, browser); }
     const clean = secrets.clean(value) as Record<string, unknown>;
     return { content: [{ type: 'text' as const, text: JSON.stringify(clean) }], structuredContent: clean, isError: 'error' in clean };
   });
