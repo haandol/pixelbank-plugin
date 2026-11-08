@@ -28,6 +28,9 @@ Workspace commands run in the package directory. `build` bundles all runtime dep
 
 CI verifies that Node is absent, then builds and tests in the same Dev Container image without publication credentials. It rejects changed distribution files or lockfile changes after a frozen install and rebuild. Container validation publishes no ports and does not mount account credentials. These fixtures do not establish deployed OAuth, cloud routing or paid image-provider output.
 
+GitHub's dependency graph does not read `bun.lock`, and Dependabot supports only version updates for Bun, so neither reports advisories for transitive packages. The [dependency audit workflow](../.github/workflows/dependency-audit.yml) runs `bun run audit:deps` (`bun audit`) in the same image every Monday at 03:41 UTC and on manual dispatch. It checks every locked package against published advisories without installing dependencies, reports every severity, and fails if an advisory remains or the checkout changes. It is monitoring rather than a push or pull-request check, has only `contents: read`, and cannot detect unpublished vulnerabilities. GitHub notifies the user who last changed the schedule about failed scheduled runs and disables schedules after 60 days without repository activity. To resolve a failure, update the affected dependency or run `bun audit fix`, rebuild, and verify the change normally.
+
+
 For an explicitly configured isolated server, `PIXELBANK_API_BASE_URL` accepts a loopback discovery base. `PIXELBANK_CREDENTIALS_DIR` and `PIXELBANK_AUTH_SCOPE` isolate test credentials. Keep normal home-directory variables unchanged. Supported production endpoints and account boundaries remain fixed by the client contract.
 
 ## Versions and consumer integration
