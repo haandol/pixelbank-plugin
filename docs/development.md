@@ -37,6 +37,8 @@ For an explicitly configured isolated server, `PIXELBANK_API_BASE_URL` accepts a
 
 Keep version `0.2.3` synchronized across the root workspace, plugin package, lockfile workspace entry, host manifests and marketplace metadata. Naming and layout corrections do not change the API or require a version bump. The plugin version and API contract version are separate.
 
+Release verification tests use Git and unzip, both provided by the Dev Container and verification images.
+
 A consumer pins an exact repository commit and hashes `plugins/pixelbank/dist/index.js` and `plugins/pixelbank/contracts/tools.json`. Verification must point at the repository root and resolve the package below `plugins/pixelbank`; the package alone remains sufficient for an installed runtime.
 
 Local checks and commits do not authorize publishing. Preserve existing Git hooks and security controls. Pushes and GitHub Releases run only in the release container; follow [Container pushes and versioned releases](releases.md). `bun run check:container` verifies committed source in the Bun image and is the receipt every push requires.

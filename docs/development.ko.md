@@ -37,6 +37,8 @@ GitHub 의존성 그래프는 `bun.lock`을 읽지 않고 Dependabot은 Bun에 �
 
 작업공간·패키지·잠금 파일·호스트 설정·마켓플레이스의 버전 `0.2.3`을 일치시킵니다. 이름이나 파일 배치의 수정만으로 API가 바뀌거나 버전 상향이 필요하지는 않습니다. 플러그인 버전과 API 계약 버전은 별개입니다.
 
+릴리즈 검증 테스트는 Git과 unzip을 사용하며, 두 도구 모두 Dev Container와 검증 이미지에 포함됩니다.
+
 이 패키지를 사용하는 서비스는 정확한 저장소 커밋과 `plugins/pixelbank/dist/index.js`, `plugins/pixelbank/contracts/tools.json`의 해시를 고정합니다. 검증에는 저장소 루트 경로를 지정하고 그 아래 패키지를 찾도록 합니다. 설치된 실행 환경에는 패키지 디렉터리만으로 충분합니다.
 
 로컬 검사와 커밋은 원격 발행 권한을 부여하지 않습니다. 기존 Git 훅과 보안 제어를 유지합니다. 푸시와 GitHub Release는 릴리스 컨테이너에서만 실행하며 [발행 절차](releases.ko.md)를 따릅니다. `bun run check:container`는 커밋된 소스를 Bun 이미지에서 검증하고 푸시에 필요한 검증 기록을 만듭니다.

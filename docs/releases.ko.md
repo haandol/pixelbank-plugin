@@ -30,6 +30,6 @@ bash scripts/container-git.sh push -u origin main
 3. 해당 커밋에 주석 태그를 만들고 푸시합니다. `git tag -a v0.2.3 -m "PixelbankStudio Plugin 0.2.3"` 다음 `bash scripts/container-git.sh push origin v0.2.3`을 실행합니다.
 4. 무시된 `.release/notes-v0.2.3.md`에 사용자에게 달라진 점을 영어와 한국어로 작성합니다. 비공개 서비스 구현·운영 데이터·인증 정보·사용자 콘텐츠는 포함하지 않습니다. 이어서 `bash scripts/container-release.sh v0.2.3`을 실행합니다.
 
-발행기는 소스 커밋과 ZIP SHA-256을 덧붙이고 `pixelbank-plugin-<version>.zip`, `SHA256SUMS`를 올립니다. 초안이 아닌지, 필요한 파일이 있는지, 인증 없이 받은 ZIP이 태그 소스와 일치하는지, 저장소가 공개인지 확인합니다. 기존 릴리스는 검증만 하고 덮어쓰지 않습니다. 태그나 릴리스가 충돌하면 중단합니다.
+발행기는 소스 커밋과 ZIP SHA-256을 덧붙이고 `pixelbank-plugin-<version>.zip`, `SHA256SUMS`를 올립니다. 초안이 아닌지, 필요한 파일이 있는지, 인증 없이 받은 ZIP이 태그 소스와 일치하는지, 저장소가 공개인지 확인합니다. 새 ZIP에는 태그 커밋의 시각을 사용합니다. 검증은 게시된 체크섬과 패키지의 모든 경로·파일 내용을 확인하므로, 기존 ZIP의 생성 시각이 달라도 동일한 소스라면 검증을 통과합니다. 일시적인 다운로드 오류는 재시도합니다. 기존 릴리스는 검증만 하고 덮어쓰지 않습니다. 태그나 릴리스가 충돌하면 중단합니다.
 
 마켓플레이스 설치는 릴리스 태그가 아닌 저장소를 선택하므로 릴리스가 설치 버전을 고정하지는 않습니다. 플러그인 버전과 PixelbankStudio API 계약 버전도 별개입니다.

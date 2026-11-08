@@ -40,7 +40,8 @@ jq -e 'any(.[]; .name == "verify" and .conclusion == "success") and all(.[]; .co
 task_out=/tmp/release
 mkdir -p "$task_out"
 task_zip="pixelbank-plugin-$task_version.zip"
-git archive --format=zip --prefix=pixelbank/ -o "$task_out/$task_zip" "$task_commit:plugins/pixelbank"
+task_epoch=$(git show -s --format=%ct "$task_commit")
+git archive --format=zip --prefix=pixelbank/ --mtime="@$task_epoch" -o "$task_out/$task_zip" "$task_commit:plugins/pixelbank"
 (cd "$task_out" && sha256sum "$task_zip" > SHA256SUMS)
 task_zip_sha=$(cut -d' ' -f1 "$task_out/SHA256SUMS")
 {
@@ -49,13 +50,20 @@ task_zip_sha=$(cut -d' ' -f1 "$task_out/SHA256SUMS")
 } > "$task_out/notes.md"
 
 verify_published() {
-    local state url downloaded
+    local state url checksum_url downloaded expected checksum_name
     state=$(gh release view "$task_tag" -R "$task_repository" --json isDraft,isPrerelease,tagName,assets)
     jq -e --arg tag "$task_tag" --arg zip "$task_zip" '.isDraft == false and .tagName == $tag and ([.assets[].name] | sort) == ([$zip, "SHA256SUMS"] | sort)' <<<"$state" >/dev/null ||
         reject "The published release does not match the expected tag and assets: $state"
     url=$(jq -r --arg zip "$task_zip" '.assets[] | select(.name == $zip) | .url' <<<"$state")
-    downloaded=$(curl -fsSL --proto '=https' "$url" | sha256sum | cut -d' ' -f1)
-    [[ "$downloaded" == "$task_zip_sha" ]] || reject 'The public release ZIP does not match the tagged source.'
+    checksum_url=$(jq -r '.assets[] | select(.name == "SHA256SUMS") | .url' <<<"$state")
+    curl -fsSL --retry 3 --retry-delay 1 --max-time 45 --proto '=https' "$url" -o "$task_out/downloaded.zip"
+    curl -fsSL --retry 3 --retry-delay 1 --max-time 45 --proto '=https' "$checksum_url" -o "$task_out/downloaded-SHA256SUMS"
+    read -r expected checksum_name < "$task_out/downloaded-SHA256SUMS"
+    [[ "$expected" =~ ^[a-f0-9]{64}$ && "$checksum_name" == "$task_zip" && "$(wc -l < "$task_out/downloaded-SHA256SUMS")" -eq 1 ]] || reject 'The published checksum file is invalid.'
+    downloaded=$(sha256sum "$task_out/downloaded.zip" | cut -d' ' -f1)
+    [[ "$downloaded" == "$expected" ]] || reject 'The public release ZIP does not match its published checksum.'
+    bash /workspace/scripts/verify-package-zip.sh "$task_commit" "$task_out/downloaded.zip"
+    task_zip_sha=$downloaded
     [[ "$(gh repo view "$task_repository" --json visibility --jq .visibility)" == PUBLIC ]] || reject 'The release repository is not public.'
 }
 

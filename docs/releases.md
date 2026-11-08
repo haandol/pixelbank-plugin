@@ -31,6 +31,6 @@ The push re-verifies `HEAD` unless a receipt for the same tree and verification 
 4. Write user-visible release notes in both English and Korean in the ignored `.release/notes-v0.2.3.md`. Never include private service implementation, operational data, credentials or user content.
    Then run `bash scripts/container-release.sh v0.2.3`.
 
-The publisher appends the source commit and ZIP SHA-256, uploads `pixelbank-plugin-<version>.zip` and `SHA256SUMS`, and then verifies the public state: not a draft, the expected assets, an anonymously downloaded ZIP matching the tagged source and a public repository. An existing release is verified and never overwritten; a conflicting tag or release stops the workflow.
+The publisher appends the source commit and ZIP SHA-256, uploads `pixelbank-plugin-<version>.zip` and `SHA256SUMS`, and then verifies the public state: not a draft, the expected assets, an anonymously downloaded ZIP matching the tagged source and a public repository. New ZIPs use the tagged commit's timestamp. Verification checks the published checksum and every package path and file's bytes, so older ZIP timestamps do not invalidate unchanged source. Transient download failures are retried. An existing release is verified and never overwritten; a conflicting tag or release stops the workflow.
 
 Marketplace installation selects the repository, not a release tag, so a release does not pin installations. The plugin version and the PixelbankStudio API contract version remain independent.
