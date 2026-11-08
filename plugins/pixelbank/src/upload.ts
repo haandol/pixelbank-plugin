@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { lstat, open, realpath } from 'node:fs/promises';
+import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { imageSize } from 'image-size';
 import { Auth } from './auth.js';
@@ -18,13 +18,13 @@ const invalid = () => new SafeError('INVALID_UPLOAD', 'The service upload ticket
 /** Read one opened inode; a replaced path or a modified file never reaches the uploader. */
 export async function readSelectedImage(path: string, limit: number): Promise<Buffer> {
   try {
-    const before = await lstat(path);
+    const before = await fs.lstat(path);
     if (!before.isFile() || before.isSymbolicLink() || before.size < 1 || before.size > limit) throw preparation();
-    const canonical = await realpath(path);
-    const file = await open(canonical, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const canonical = await fs.realpath(path);
+    const file = await fs.open(canonical, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     try {
       const same = (stat: typeof before) => stat.isFile() && stat.dev === before.dev && stat.ino === before.ino && stat.size === before.size && stat.mtimeMs === before.mtimeMs && stat.ctimeMs === before.ctimeMs;
-      if (!same(await file.stat()) || await realpath(path) !== canonical) throw preparation();
+      if (!same(await file.stat()) || await fs.realpath(path) !== canonical) throw preparation();
       const bytes = Buffer.alloc(before.size + 1);
       let length = 0;
       while (length < bytes.length) {
@@ -32,7 +32,7 @@ export async function readSelectedImage(path: string, limit: number): Promise<Bu
         if (bytesRead === 0) break;
         length += bytesRead;
       }
-      if (length !== before.size || !same(await file.stat()) || !same(await lstat(path))) throw preparation();
+      if (length !== before.size || !same(await file.stat()) || !same(await fs.lstat(path))) throw preparation();
       return bytes.subarray(0, length);
     } finally { await file.close(); }
   } catch { throw preparation(); }

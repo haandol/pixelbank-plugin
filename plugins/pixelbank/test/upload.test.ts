@@ -1,7 +1,6 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { syncBuiltinESMExports } from 'node:module';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { mock } from './helpers.js';
@@ -127,13 +126,14 @@ test('symlinks, directories and a deterministic lstat/open path swap never read 
   await assert.rejects(readSelectedImage(link, 1024), { code: 'IMAGE_PREPARATION_REQUIRED' });
   await assert.rejects(readSelectedImage(f.m.directory, 1024), { code: 'IMAGE_PREPARATION_REQUIRED' });
   const originalOpen = fs.open;
+  let swaps = 0;
   t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
-    if (args[0] === f.path) { await fs.rename(f.path, `${f.path}.original`); await fs.symlink(other, f.path); }
+    if (args[0] === f.path) { swaps++; await fs.rename(f.path, `${f.path}.original`); await fs.symlink(other, f.path); }
     return originalOpen(...args);
   });
-  syncBuiltinESMExports();
   try { await assert.rejects(readSelectedImage(f.path, 1024), { code: 'IMAGE_PREPARATION_REQUIRED' }); }
-  finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+  finally { t.mock.restoreAll(); }
+  assert.equal(swaps, 1);
   assert.equal(f.m.rpcCalls().length, 0); assert.equal(await fs.readFile(other, 'utf8'), 'unselected private content');
 });
 

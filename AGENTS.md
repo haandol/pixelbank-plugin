@@ -5,7 +5,9 @@ This repository owns the public installable MCP bridge, creative-workflow skill 
 - Root marketplace entries select `plugins/pixelbank`, a self-contained installation with manifests, skills, contracts and the bundled MCP bridge.
 - Keep root and plugin READMEs focused on installation and usage. Put developer instructions in `docs/`; never include private service source or operational data there.
 - Keep the workspace, package, host manifests and marketplace versions aligned. A layout or naming correction does not require a version bump.
-- Use `npm run check` for manifest validation, typechecking, bundle generation and tests. The Dev Container provides the same Node 24 environment as CI.
+- Use `bun run check` for manifest validation, typechecking, bundle generation and tests. The Dev Container provides the same Bun 1.4.2 environment as CI.
+- Use the exact `.bun-version` for verification. Bun runs compatible `node:` APIs; Node, npm, tsx and esbuild are not required tooling. Keep type checking, file-safety assertions and portable bundle tests intact.
+- Plugin distribution decisions are indexed in `docs/adr/.mapping.json`. Read the owning decision before changing the supported installation or publication contract.
 - Local commits do not authorize remote creation, renaming, pushing, releases or approval requests. Preserve all existing Git/security hooks.
 - Push and publish only from the release container: `bash scripts/container-git.sh push …` and `bash scripts/container-release.sh vX.Y.Z` (see `docs/releases.md`). Never push from the host, bypass the receipt check, force-push, or overwrite a tag, release or asset. Pass the GitHub credential only over standard input as the scripts do.
 - Release notes describe user-visible changes in both English and Korean and belong in the ignored `.release/` directory.

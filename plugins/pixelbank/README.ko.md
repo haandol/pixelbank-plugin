@@ -14,7 +14,27 @@ Codex나 Claude Code에서 PixelbankStudio를 사용하고, 시각적인 선택�
 
 ## 설치와 연결
 
-macOS 또는 Linux의 Node.js 24가 필요합니다. 패키지의 `dist/` 번들에 실행 의존성이 포함돼 있어 플러그인 설치에 `npm install`은 필요하지 않습니다.
+macOS 또는 Linux의 Bun 1.4.2 이상이 필요합니다. 패키지의 `dist/` 번들에 실행 의존성이 포함돼 있어 사용자에게 필요한 것은 Bun 실행 환경과 플러그인 패키지입니다.
+
+### Bun이 없다면 먼저 설치하세요
+
+설치된 버전을 확인합니다.
+
+```sh
+bun --version
+```
+
+Bun이 없거나 1.4.2보다 오래된 버전이라면 [공식 설치 프로그램](https://bun.sh/docs/installation)으로 검증된 버전을 설치하세요.
+
+```sh
+curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.2"
+```
+
+Linux에서 설치하려면 `unzip`이 필요합니다. 새 터미널에서 `bun --version`을 다시 확인한 뒤, Codex나 Claude Code를 재시작해 Bun을 찾을 수 있게 합니다.
+
+어시스턴트가 계속 Bun을 찾지 못하면 새 터미널에서 `command -v bun`을 확인하고 그 터미널에서 CLI 호스트를 실행하세요. MCP 서버를 수동으로 설정하는 경우에는 해당 실행 파일의 절대 경로를 명령으로 지정할 수 있습니다.
+
+### 플러그인 설치
 
 Codex:
 

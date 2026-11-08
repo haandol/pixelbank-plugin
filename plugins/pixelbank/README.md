@@ -14,7 +14,27 @@ For a quick introduction and real output examples, see the [repository overview]
 
 ## Install and connect
 
-Node.js 24 on macOS or Linux is required. The checked-in `dist/` bundle includes runtime dependencies, so a plugin installation does not need `npm install`.
+Bun 1.4.2 or newer on macOS or Linux is required. The checked-in `dist/` bundle includes execution dependencies; users only need the Bun runtime and the plugin package.
+
+### Install Bun if needed
+
+Check your installed version:
+
+```sh
+bun --version
+```
+
+If Bun is missing or older than 1.4.2, install the verified version with the [official installer](https://bun.sh/docs/installation):
+
+```sh
+curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.2"
+```
+
+Linux needs `unzip` for the installer. Open a new terminal and run `bun --version` again, then restart Codex or Claude Code so it can find Bun.
+
+If the assistant still cannot find Bun, run `command -v bun` in the new terminal and launch the CLI host there. For a manually configured MCP server, its command can use that absolute executable path.
+
+### Install the plugin
 
 For Codex:
 

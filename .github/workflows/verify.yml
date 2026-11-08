@@ -18,6 +18,6 @@ jobs:
         run: >-
           docker run --rm --init --user "$(id -u):$(id -g)"
           --volume "$GITHUB_WORKSPACE:/workspaces/pixelbank-plugin"
-          --env NPM_CONFIG_CACHE=/tmp/npm-cache
+          --env BUN_INSTALL_CACHE_DIR=/tmp/bun-cache
           pixelbank-plugin-check sh -c
-          'npm ci --ignore-scripts --no-audit --no-fund && npm run check && git diff --exit-code -- plugins/pixelbank/dist'
+          'test -z "$(command -v node)" && bun install --frozen-lockfile --ignore-scripts && bun run check && git diff --exit-code -- plugins/pixelbank/dist bun.lock'

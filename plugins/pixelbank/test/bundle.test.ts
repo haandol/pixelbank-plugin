@@ -19,7 +19,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`portable bun
   m.rpc.tools = [{ name: 'pixelbank_get_account', inputSchema: { type: 'object', additionalProperties: false }, outputSchema: { type: 'object', required: ['data'], properties: { data: { type: 'object' } } } }];
   m.flags.apiBody = { data: { display_name: 'Fixture', credits: 7 } };
   const transport = new StdioClientTransport({ command: process.execPath, args: [join(isolated, 'bundle', 'index.js')], cwd: isolated, stderr: 'pipe', env: {
-    PATH: process.env.PATH!, HOME: isolated, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host', PIXELBANK_CREDENTIALS_DIR: m.directory,
+    PATH: process.env.PATH!, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host', PIXELBANK_CREDENTIALS_DIR: m.directory,
   } });
   let stderr = ''; transport.stderr?.on('data', chunk => { stderr += chunk.toString(); });
   const client = new Client({ name: 'fixture-host', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });

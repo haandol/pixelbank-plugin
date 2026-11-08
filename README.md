@@ -21,7 +21,30 @@ Start with a prompt or a picture. Generate an image, remove its background, or t
 
 ## Quickstart
 
-You'll need **Node.js 24**, **macOS or Linux**, a PixelbankStudio account, and Codex or Claude Code.
+You'll need **Bun 1.4.2 or newer**, **macOS or Linux**, a PixelbankStudio account, and Codex or Claude Code.
+
+### Install Bun if needed
+
+Check your installed version:
+
+```sh
+bun --version
+```
+
+If Bun is missing or older than 1.4.2, install the verified version with the [official installer](https://bun.sh/docs/installation):
+
+```sh
+curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.2"
+```
+
+Linux needs `unzip` for the installer. Open a new terminal and run `bun --version` again, then restart Codex or Claude Code so it can find Bun.
+
+<details>
+<summary><strong>The assistant cannot find Bun. What should I do?</strong></summary>
+
+Run `bun --version` and `command -v bun` in a new terminal, then fully quit and reopen your assistant. For a CLI host, launch it from that terminal. If you maintain a manual MCP configuration, use the absolute executable path returned by `command -v bun` as its command. See [Bun installation troubleshooting](https://bun.sh/docs/installation).
+
+</details>
 
 ### Codex
 

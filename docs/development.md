@@ -8,28 +8,32 @@ Repository-level marketplace and development files wrap one self-contained insta
 | --- | --- |
 | `.agents/plugins/marketplace.json`, `.claude-plugin/marketplace.json` | Codex and Claude discover `plugins/pixelbank`. |
 | `plugins/pixelbank/` | Package manifests, MCP bridge, skills, public contracts and committed `dist/` bundle. |
-| `scripts/`, `.github/`, `.devcontainer/` | Workspace validation and the Node 24 development/CI environment. |
+| `scripts/`, `.github/`, `.devcontainer/` | Workspace validation and the Bun 1.4.2 development/CI environment. |
 | `docs/` | Public maintenance documentation. |
 
 ## Build and verify
 
-Open the standalone checkout in its Dev Container, or use Node.js 24 locally:
+Open the standalone checkout in its Dev Container, or use Bun 1.4.2 locally:
 
 ```sh
-npm ci --ignore-scripts
-npm run check
+bun install --frozen-lockfile --ignore-scripts
+bun run check
 ```
+
+Use the exact version in `.bun-version` for builds and verification. The root `packageManager` declaration, package requirements and Dev Container image agree with it. The customer installation guide includes the command for that version.
+
+`Bun.build` produces the self-contained bundle. `bun test` executes the test suite, including compatible `node:test` APIs; `bun run --bun tsc --noEmit` retains TypeScript checking without a Node executable. Node-compatible imports are Bun APIs in this runtime. Child-process fixtures also launch Bun directly.
 
 Workspace commands run in the package directory. `build` bundles all runtime dependencies, retains dependency notices and records bundle/contract hashes in `dist/build-info.json`. `validate` checks versions, marketplace paths, host manifests, skills, notices and those hashes. `test` exercises signed synthetic identity, private temporary credential stores, scoped creative calls and the actual stdio bundle outside `node_modules`.
 
-CI builds the same Dev Container image and runs these checks without publication credentials. It also rejects a rebuild that changes committed distribution files. Container validation publishes no ports and does not mount account credentials. These fixtures do not establish deployed OAuth, cloud routing or paid image-provider output.
+CI verifies that Node is absent, then builds and tests in the same Dev Container image without publication credentials. It rejects changed distribution files or lockfile changes after a frozen install and rebuild. Container validation publishes no ports and does not mount account credentials. These fixtures do not establish deployed OAuth, cloud routing or paid image-provider output.
 
 For an explicitly configured isolated server, `PIXELBANK_API_BASE_URL` accepts a loopback discovery base. `PIXELBANK_CREDENTIALS_DIR` and `PIXELBANK_AUTH_SCOPE` isolate test credentials. Keep normal home-directory variables unchanged. Supported production endpoints and account boundaries remain fixed by the client contract.
 
 ## Versions and consumer integration
 
-Keep version `0.1.1` synchronized across the root workspace, plugin package, lockfile, host manifests and marketplace metadata. Naming and layout corrections do not change the API or require a version bump. The plugin version and API contract version are separate.
+Keep version `0.1.1` synchronized across the root workspace, plugin package, lockfile workspace entry, host manifests and marketplace metadata. Naming and layout corrections do not change the API or require a version bump. The plugin version and API contract version are separate.
 
 A consumer pins an exact repository commit and hashes `plugins/pixelbank/dist/index.js` and `plugins/pixelbank/contracts/tools.json`. Verification must point at the repository root and resolve the package below `plugins/pixelbank`; the package alone remains sufficient for an installed runtime.
 
-Local checks and commits do not authorize publishing. Preserve existing Git hooks and security controls. Pushes and GitHub Releases run only in the release container; follow [Container pushes and versioned releases](releases.md). `npm run check:container` verifies committed source in the Node image and is the receipt every push requires.
+Local checks and commits do not authorize publishing. Preserve existing Git hooks and security controls. Pushes and GitHub Releases run only in the release container; follow [Container pushes and versioned releases](releases.md). `bun run check:container` verifies committed source in the Bun image and is the receipt every push requires.

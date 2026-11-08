@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify the committed HEAD tree in the Node verification image and print its receipt path.
+# Verify the committed HEAD tree in the Bun verification image and print its receipt path.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/container.sh"
 
@@ -23,13 +23,14 @@ git -C "$task_root" archive "$task_commit" | tar -x -C "$task_source"
 # Rebuilding the committed distribution must leave every exported file unchanged.
 docker run --rm --init --user "$(id -u):$(id -g)" \
     --mount "type=bind,source=$task_source,target=/workspaces/pixelbank-plugin" \
-    --env NPM_CONFIG_CACHE=/tmp/npm-cache --env HOME=/tmp \
+    --env BUN_INSTALL_CACHE_DIR=/tmp/bun-cache \
     "$task_image" bash -c '
         set -euo pipefail
-        snapshot() { find . -path ./node_modules -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; }
+        snapshot() { find . -type d -name node_modules -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; }
         snapshot > /tmp/before
-        npm ci --ignore-scripts --no-audit --no-fund
-        npm run check
+        test -z "$(command -v node)"
+        bun install --frozen-lockfile --ignore-scripts
+        bun run check
         snapshot > /tmp/after
         if ! cmp -s /tmp/before /tmp/after; then
             diff /tmp/before /tmp/after >&2 || true

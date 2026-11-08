@@ -16,16 +16,23 @@ const agentMarket = await read('.agents/plugins/marketplace.json');
 const claudeMarket = await read('.claude-plugin/marketplace.json');
 const mcp = await read('plugins/pixelbank/mcp.json');
 const claudeMcp = await read('plugins/pixelbank/.mcp.json');
-const lock = await read('package-lock.json');
+const lock = Bun.JSON5.parse(await readFile(resolve(root, 'bun.lock'), 'utf8'));
+const bunVersion = (await readFile(resolve(root, '.bun-version'), 'utf8')).trim();
+assert.equal(Bun.version, bunVersion, `Verification requires Bun ${bunVersion}.`);
+assert.equal(workspace.packageManager, `bun@${bunVersion}`);
+assert.equal(workspace.engines.bun, `>=${bunVersion}`);
+assert.equal((await readFile(resolve(root, '.devcontainer/Dockerfile'), 'utf8')).split('\n')[0], `FROM oven/bun:${bunVersion}-slim`);
 assert.equal(workspace.name, 'pixelbank-plugin-workspace');
 assert.deepEqual(workspace.workspaces, ['plugins/pixelbank']);
 assert.equal(pkg.name, 'pixelbank-creative-plugin');
 assert.deepEqual(workspace.repository, { type: 'git', url: 'git+https://github.com/haandol/pixelbank-plugin.git' });
 assert.deepEqual(pkg.repository, { ...workspace.repository, directory: 'plugins/pixelbank' });
 assert.equal(workspace.version, pkg.version);
-assert.equal(lock.packages[''].version, pkg.version);
-assert.equal(lock.packages['plugins/pixelbank'].version, pkg.version);
-assert.equal(workspace.engines.node, pkg.engines.node);
+assert.equal(lock.workspaces[''].name, workspace.name);
+assert.equal(lock.workspaces['plugins/pixelbank'].version, pkg.version);
+assert.deepEqual(lock.workspaces['plugins/pixelbank'].dependencies, pkg.dependencies);
+assert.deepEqual(lock.workspaces['plugins/pixelbank'].devDependencies, pkg.devDependencies);
+assert.deepEqual(workspace.engines, pkg.engines);
 for (const manifest of [portable, claude, codex]) {
   assert.equal(manifest.name, 'pixelbank');
   assert.equal(manifest.version, pkg.version);
@@ -40,6 +47,8 @@ assert.equal(claudeMarket.plugins[0].name, 'pixelbank');
 assert.equal(claudeMarket.plugins[0].source, './plugins/pixelbank');
 assert.equal(claudeMarket.plugins[0].version, pkg.version);
 assert.deepEqual(codex.mcpServers, mcp.mcpServers);
+assert.equal(mcp.mcpServers.pixelbank.command, 'bun');
+assert.equal(claudeMcp.mcpServers.pixelbank.command, 'bun');
 assert.equal(claude.mcpServers, './.mcp.json');
 assert.equal(claude.skills, './skills/');
 assert.equal(codex.skills, './skills/');
@@ -60,6 +69,11 @@ for (const directory of [root, plugin]) {
   const korean = await readFile(resolve(directory, 'README.ko.md'), 'utf8');
   assert(english.includes('href="README.ko.md"'), 'English README must link to Korean');
   assert(korean.includes('href="README.md"'), 'Korean README must link to English');
+  for (const document of [english, korean]) {
+    assert(document.includes(`Bun ${bunVersion}`), 'Setup must declare the verified Bun version');
+    assert(document.includes('https://bun.sh/install'), 'Setup must explain how to install Bun');
+    assert(document.includes('bun --version'), 'Setup must include runtime verification');
+  }
 }
 for (const file of ['LICENSE.encbird', 'THIRD_PARTY_NOTICES.md']) {
   assert.deepEqual(await readFile(resolve(root, file)), await readFile(resolve(plugin, file)));
@@ -67,7 +81,8 @@ for (const file of ['LICENSE.encbird', 'THIRD_PARTY_NOTICES.md']) {
 const info = await read('plugins/pixelbank/dist/build-info.json');
 const hash = async file => createHash('sha256').update(await readFile(resolve(plugin, file))).digest('hex');
 assert.equal(info.version, pkg.version);
-assert.equal(info.node, pkg.engines.node);
+assert.equal(info.bun, pkg.engines.bun);
+assert.equal(info.builtWithBun, bunVersion);
 assert.deepEqual(info.dependencies, pkg.dependencies);
 assert.equal(info.bundleSha256, await hash('dist/index.js'));
 assert.equal(info.contractsSha256, await hash('contracts/tools.json'));

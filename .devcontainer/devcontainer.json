@@ -1,9 +1,9 @@
 {
-  "name": "PixelbankStudio Plugin (Node 24)",
+  "name": "PixelbankStudio Plugin (Bun)",
   "build": { "dockerfile": "Dockerfile" },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/pixelbank-plugin,type=bind,consistency=cached",
   "workspaceFolder": "/workspaces/pixelbank-plugin",
-  "remoteUser": "node",
-  "postCreateCommand": "npm ci --ignore-scripts",
+  "remoteUser": "bun",
+  "postCreateCommand": "bun install --frozen-lockfile --ignore-scripts",
   "shutdownAction": "stopContainer"
 }

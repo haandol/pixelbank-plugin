@@ -8,7 +8,7 @@ The public destination is `haandol/pixelbank-plugin`. Every push and GitHub Rele
 
 | Step | Where it runs | What it proves |
 | --- | --- | --- |
-| `npm run check:container` | Node 24 verification image (`.devcontainer/Dockerfile`) on a fresh export of the committed `HEAD` | Locked install, the full `npm run check`, and that rebuilding leaves every committed file unchanged. Success writes a receipt keyed by the source tree under the Git common directory. |
+| `bun run check:container` | Bun 1.4.2 verification image (`.devcontainer/Dockerfile`) on a fresh export of the committed `HEAD` | Locked install, the full `bun run check`, and that rebuilding leaves every committed file unchanged. Success writes a receipt keyed by the source tree under the Git common directory. |
 | `bash scripts/container-git.sh push …` | Alpine Git/GitHub CLI release image | The pre-push hook compares every pushed tree with the receipt. Only `main` and annotated `vX.Y.Z` tags are accepted; deletions and other refs are refused. |
 | `bash scripts/container-release.sh vX.Y.Z` | Same release image, workspace mounted read-only | The remote tag matches the local annotated tag, the commit is on remote `main`, its remote checks succeeded and all manifests declare the version. The ZIP is built from the tagged package only. |
 
@@ -17,7 +17,7 @@ The host relays its GitHub CLI credential to the container over standard input. 
 ## Push `main`
 
 ```sh
-npm run hooks:install          # once per clone; keeps the existing hook manager
+bun run hooks:install          # once per clone; keeps the existing hook manager
 bash scripts/container-git.sh push -u origin main
 ```
 
@@ -25,7 +25,7 @@ The push re-verifies `HEAD` unless a receipt for the same tree and verification 
 
 ## Publish a release
 
-1. Keep the version synchronized across the workspace, plugin package, lockfile, host manifests and marketplace metadata. `npm run validate` checks it.
+1. Keep the version synchronized across the workspace, plugin package, lockfile workspace entry, host manifests and marketplace metadata. `bun run validate` checks it.
 2. Push the release commit to `main` and wait for its `verify` check.
 3. Create an annotated tag on that commit and push it: `git tag -a v0.1.1 -m "PixelbankStudio Plugin 0.1.1"`, then `bash scripts/container-git.sh push origin v0.1.1`.
 4. Write user-visible release notes in both English and Korean in the ignored `.release/notes-v0.1.1.md`. Never include private service implementation, operational data, credentials or user content.

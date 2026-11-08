@@ -5,6 +5,8 @@ description: Connect PixelbankStudio using browser sign-in after installing the 
 
 Use the official name PixelbankStudio in customer-facing replies. Support English and Korean, responding in the creator's language while preserving tool identifiers and structured values.
 
+The MCP bridge requires Bun 1.4.2 or newer on macOS or Linux. If the host cannot start `bun`, use the English or Korean installation instructions in the package README. Have the user verify `bun --version` in a new terminal and restart the host. Never install a runtime automatically or substitute Node for this package.
+
 Explain that the connection can read the owner's creative assets and credit information, upload and edit assets, manage workflows and execute approved creative processing. Connection approval is separate from a paid operation or destructive asset action.
 
 When the user wants to connect, call `pixelbank_connect` without credentials. The user completes sign-in in the browser. If authentication is pending, tell the user to finish there and return; check with the same tool after they do. Never request or copy passwords, tokens, callback URLs or AWS configuration into the conversation.

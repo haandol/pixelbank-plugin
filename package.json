@@ -6,17 +6,18 @@
   "workspaces": [
     "plugins/pixelbank"
   ],
+  "packageManager": "bun@1.4.2",
   "engines": {
-    "node": ">=24 <25"
+    "bun": ">=1.4.2"
   },
   "scripts": {
-    "build": "npm run build -w plugins/pixelbank",
-    "typecheck": "npm run typecheck -w plugins/pixelbank",
-    "test": "npm run test -w plugins/pixelbank",
-    "start": "npm run start -w plugins/pixelbank",
-    "validate": "node scripts/validate.mjs",
-    "check": "npm run validate && npm run typecheck && npm run build && npm test && npm run test:release && npm run validate",
-    "test:release": "node --test scripts/tests/*.test.mjs",
+    "build": "bun run --cwd plugins/pixelbank build",
+    "typecheck": "bun run --cwd plugins/pixelbank typecheck",
+    "test": "bun run --cwd plugins/pixelbank test",
+    "start": "bun run --cwd plugins/pixelbank start",
+    "validate": "bun scripts/validate.mjs",
+    "check": "bun run typecheck && bun run build && bun run validate && bun run test && bun run test:release",
+    "test:release": "bun test scripts/tests/*.test.mjs",
     "check:container": "bash scripts/container-check.sh",
     "hooks:install": "bash scripts/install-hooks.sh"
   },

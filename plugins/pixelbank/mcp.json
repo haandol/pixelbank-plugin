@@ -3,7 +3,7 @@
   "mcpServers": {
     "pixelbank": {
       "type": "stdio",
-      "command": "node",
+      "command": "bun",
       "args": [
         "${PLUGIN_ROOT}/dist/index.js"
       ],
