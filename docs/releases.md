@@ -27,9 +27,9 @@ The push re-verifies `HEAD` unless a receipt for the same tree and verification 
 
 1. Keep the version synchronized across the workspace, plugin package, lockfile workspace entry, host manifests and marketplace metadata. `bun run validate` checks it.
 2. Push the release commit to `main` and wait for its `verify` check.
-3. Create an annotated tag on that commit and push it: `git tag -a v0.1.1 -m "PixelbankStudio Plugin 0.1.1"`, then `bash scripts/container-git.sh push origin v0.1.1`.
-4. Write user-visible release notes in both English and Korean in the ignored `.release/notes-v0.1.1.md`. Never include private service implementation, operational data, credentials or user content.
-   Then run `bash scripts/container-release.sh v0.1.1`.
+3. Create an annotated tag on that commit and push it: `git tag -a v0.2.0 -m "PixelbankStudio Plugin 0.2.0"`, then `bash scripts/container-git.sh push origin v0.2.0`.
+4. Write user-visible release notes in both English and Korean in the ignored `.release/notes-v0.2.0.md`. Never include private service implementation, operational data, credentials or user content.
+   Then run `bash scripts/container-release.sh v0.2.0`.
 
 The publisher appends the source commit and ZIP SHA-256, uploads `pixelbank-plugin-<version>.zip` and `SHA256SUMS`, and then verifies the public state: not a draft, the expected assets, an anonymously downloaded ZIP matching the tagged source and a public repository. An existing release is verified and never overwritten; a conflicting tag or release stops the workflow.
 

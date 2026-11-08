@@ -27,8 +27,8 @@ bash scripts/container-git.sh push -u origin main
 
 1. 작업공간·패키지·잠금 파일·호스트 설정·마켓플레이스의 버전을 일치시킵니다. `bun run validate`가 이를 확인합니다.
 2. 릴리스 커밋을 `main`에 푸시하고 `verify` 검사 성공을 기다립니다.
-3. 해당 커밋에 주석 태그를 만들고 푸시합니다. `git tag -a v0.1.1 -m "PixelbankStudio Plugin 0.1.1"` 다음 `bash scripts/container-git.sh push origin v0.1.1`을 실행합니다.
-4. 무시된 `.release/notes-v0.1.1.md`에 사용자에게 달라진 점을 영어와 한국어로 작성합니다. 비공개 서비스 구현·운영 데이터·인증 정보·사용자 콘텐츠는 포함하지 않습니다. 이어서 `bash scripts/container-release.sh v0.1.1`을 실행합니다.
+3. 해당 커밋에 주석 태그를 만들고 푸시합니다. `git tag -a v0.2.0 -m "PixelbankStudio Plugin 0.2.0"` 다음 `bash scripts/container-git.sh push origin v0.2.0`을 실행합니다.
+4. 무시된 `.release/notes-v0.2.0.md`에 사용자에게 달라진 점을 영어와 한국어로 작성합니다. 비공개 서비스 구현·운영 데이터·인증 정보·사용자 콘텐츠는 포함하지 않습니다. 이어서 `bash scripts/container-release.sh v0.2.0`을 실행합니다.
 
 발행기는 소스 커밋과 ZIP SHA-256을 덧붙이고 `pixelbank-plugin-<version>.zip`, `SHA256SUMS`를 올립니다. 초안이 아닌지, 필요한 파일이 있는지, 인증 없이 받은 ZIP이 태그 소스와 일치하는지, 저장소가 공개인지 확인합니다. 기존 릴리스는 검증만 하고 덮어쓰지 않습니다. 태그나 릴리스가 충돌하면 중단합니다.
 

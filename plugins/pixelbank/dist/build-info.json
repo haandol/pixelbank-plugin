@@ -1,5 +1,5 @@
 {
-  "version": "0.1.1",
+  "version": "0.2.0",
   "bun": ">=1.4.2",
   "builtWithBun": "1.4.2",
   "dependencies": {
@@ -11,7 +11,7 @@
     "proper-lockfile": "4.1.2",
     "zod": "4.6.7"
   },
-  "bundleSha256": "785011d45b29fff981825fef478ed9f621259dba10706afc40d0a1b4326af43c",
+  "bundleSha256": "1c5e0459cc3102972b254030613e004ca318b6aae224792c65041eee6ed30ba6",
   "contractsSha256": "af83959d58ea6d5030a218fff7661d666afa9cc3370fec4089ae54768403cb37",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/client/dist/ajvProvider-BIwGVY6G.mjs",

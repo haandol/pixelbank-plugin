@@ -15,7 +15,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
   const secrets = dependencies.auth?.secrets ?? new Secrets();
   const auth = dependencies.auth ?? new Auth(base, new CredentialStore(base, profile, secrets), secrets);
   const browser = dependencies.browser ?? openBrowser;
-  const server = new Server({ name: 'pixelbank', version: '0.1.1' }, { supportedProtocolVersions: ['2026-07-28', '2025-11-25'], capabilities: { tools: { listChanged: true } },
+  const server = new Server({ name: 'pixelbank', version: '0.2.0' }, { supportedProtocolVersions: ['2026-07-28', '2025-11-25'], capabilities: { tools: { listChanged: true } },
     instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools.' });
   let catalog: Awaited<ReturnType<Auth['listCreativeTools']>> = [];
   server.onclose = () => { void auth.cancel(); };
