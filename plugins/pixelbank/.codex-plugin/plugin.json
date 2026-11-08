@@ -1,6 +1,6 @@
 {
   "name": "pixelbank",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Create and reuse PixelbankStudio assets through MCP, with prepared web workspaces for visual editing.",
   "author": {
     "name": "PixelbankStudio",
