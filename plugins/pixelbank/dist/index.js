@@ -24673,6 +24673,7 @@ var messages = {
   AUTH_REQUIRED: "PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connect to resume retained setup or recovery, or pixelbank_disconnect to finish cleanup. Preserve credential records.",
   CONNECTION_INACTIVE: "This connection has been revoked. Reconnect with the same account before using creative tools.",
   CONNECTION_FORBIDDEN: "The granted scopes do not permit this operation.",
+  ASSET_NOT_FOUND: "The requested image is unavailable. Refresh the library or choose another image.",
   NOT_ENOUGH_CREDIT: "There are not enough credits. Top up in PixelbankStudio before retrying the original operation.",
   FREE_TRIAL_UNAVAILABLE: "Free-use availability could not be confirmed. Paid fallback requires separate consent for this operation.",
   CREDIT_PRICE_CHANGED: "The current price exceeds the approved amount. Review a new quote before authorizing execution.",
@@ -41324,7 +41325,7 @@ var DISCOVERY_TIMEOUT_MS = 30000;
 async function withRemote(base, token, action, options) {
   const endpoint = new URL("/mcp", validateBase(base));
   const version = options.protocolVersion ?? "2026-07-28";
-  const client = new Client({ name: "pixelbank-mcp", version: "0.2.1" }, {
+  const client = new Client({ name: "pixelbank-mcp", version: "0.2.2" }, {
     supportedProtocolVersions: [version],
     versionNegotiation: { mode: version === "2026-07-28" ? { pin: version } : "legacy", probe: { maxRetries: 0 } },
     inputRequired: { autoFulfill: false }
@@ -43345,7 +43346,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   const secrets = dependencies.auth?.secrets ?? new Secrets;
   const auth = dependencies.auth ?? new Auth(base, new CredentialStore(base, profile, secrets), secrets);
   const browser = dependencies.browser ?? openBrowser;
-  const server = new Server({ name: "pixelbank", version: "0.2.1" }, {
+  const server = new Server({ name: "pixelbank", version: "0.2.2" }, {
     supportedProtocolVersions: ["2026-07-28", "2025-11-25"],
     capabilities: { tools: { listChanged: true } },
     instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools."

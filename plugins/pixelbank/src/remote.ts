@@ -21,7 +21,7 @@ export interface RemoteOptions {
 async function withRemote<T>(base: string, token: () => Promise<string>, action: (client: Client) => Promise<T>, options: RemoteOptions): Promise<T> {
   const endpoint = new URL('/mcp', validateBase(base));
   const version = options.protocolVersion ?? '2026-07-28';
-  const client = new Client({ name: 'pixelbank-mcp', version: '0.2.1' }, {
+  const client = new Client({ name: 'pixelbank-mcp', version: '0.2.2' }, {
     supportedProtocolVersions: [version],
     versionNegotiation: { mode: version === '2026-07-28' ? { pin: version } : 'legacy', probe: { maxRetries: 0 } },
     inputRequired: { autoFulfill: false },

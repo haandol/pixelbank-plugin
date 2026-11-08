@@ -79,6 +79,8 @@ The assistant uploads only the selected file, checks the current price and free 
 
 After editing, select the result in the workflow and tell the assistant to continue. It reads the same saved run and its permitted next action. Opening or closing a tab does not complete a step. Final acceptance remains explicit.
 
+Workflow progress is saved when you leave. Return to the same run to continue, or reopen a completed run to edit its result.
+
 A preparation is an immutable initial setup, retained until account deletion. Reopening restores that setup; later canvas edits are not autosaved by this feature. New preparations use new operation keys. Stale workflow revisions, missing images and unrelated unsaved work are rejected with recovery instructions. Generation supports at most five named object references, plus composed layers; nonzero layer rotation is currently unsupported.
 
 ## Authentication and operation safety
@@ -90,6 +92,8 @@ Credentials are stored in owner-only files under `~/.pixelbank-plugin/`, separat
 Billable calls carry the approved credit maximum and one stable operation key. Retries must preserve both and the original request. The bridge does not automatically replay a write after an uncertain outcome. Accepted jobs are reported as accepted until the server reports completion or failure. Quotes and prepared-workspace opening do not consume free uses or credits.
 
 The bridge provides four local tools: `pixelbank_connect`, `pixelbank_disconnect`, `pixelbank_upload_image` and `pixelbank_open_workspace`. Other tools come from the authenticated server. Provider credentials, account administration and checkout are not exposed. Opening a workspace uses the default browser without controlling its active tab.
+
+If an image read returns `ASSET_NOT_FOUND`, refresh the library or choose an available image before continuing. This identifies a missing saved image rather than a temporary service outage.
 
 ## More information
 

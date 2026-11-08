@@ -2301,8 +2301,6 @@
                   "next",
                   "skip",
                   "complete",
-                  "pause",
-                  "resume",
                   "reopen"
                 ],
                 "type": "string"

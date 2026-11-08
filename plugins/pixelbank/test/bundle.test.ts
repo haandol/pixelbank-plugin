@@ -113,3 +113,33 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   assert.equal(m.counts.refresh, 0); assert.equal(m.counts.disconnect, 0);
   await client.close(); assert.equal(stderr, '');
 });
+
+for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${protocol} stdio distinguishes a missing image from service failure without replay`, async t => {
+  const isolated = await tempDirectory(); t.after(() => rm(isolated, { recursive: true, force: true }));
+  await cp('dist', join(isolated, 'bundle'), { recursive: true });
+  const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
+  m.rpc.tools = [{ name: 'pixelbank_get_asset', inputSchema: { type: 'object' } }];
+  m.flags.apiBody = { error: { code: 'ASSET_NOT_FOUND', message: 'private storage detail' } };
+  m.hooks.rpc = (body, _req, res) => {
+    if (body.method !== 'tools/call') return false;
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+      jsonrpc: '2.0', id: body.id, result: { resultType: 'complete', isError: true,
+        structuredContent: m.flags.apiBody, content: [] },
+    }));
+    return true;
+  };
+  const transport = new StdioClientTransport({ command: process.execPath, args: [join(isolated, 'bundle', 'index.js')], cwd: isolated, stderr: 'pipe', env: {
+    PATH: process.env.PATH!, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host', PIXELBANK_CREDENTIALS_DIR: m.directory,
+  } });
+  const client = new Client({ name: 'missing-asset-regression', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });
+  t.after(() => client.close()); await client.connect(transport, { timeout: 10_000 });
+  const input = { namespace: 'generation', filename: 'deleted.png' };
+  const result = await client.callTool({ name: 'pixelbank_get_asset', arguments: input });
+  assert.equal(result.isError, true);
+  assert.deepEqual(result.structuredContent, { error: {
+    code: 'ASSET_NOT_FOUND', message: 'The requested image is unavailable. Refresh the library or choose another image.',
+  } });
+  assert.equal(m.rpcCalls().length, 1);
+  assert.deepEqual((m.rpcCalls()[0]!.body as any).params.arguments, input);
+  assert.equal(m.counts.refresh, 0); assert.equal(m.counts.disconnect, 0);
+});
