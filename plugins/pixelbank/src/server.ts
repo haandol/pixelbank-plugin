@@ -7,6 +7,7 @@ import { openBrowser } from './oauth.js';
 import { parseUploadInput, uploadImage } from './upload.js';
 import { localTools, isInternalUploadTool, assertNoLocalOverrides } from './catalog.js';
 import { openPreparedWorkspace } from './workspace.js';
+import { openCreditsPage } from './credits.js';
 export { validateWorkspaceURL } from './workspace.js';
 
 /** The local server bridges only the authenticated remote catalog and local connection actions. */
@@ -16,7 +17,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
   const auth = dependencies.auth ?? new Auth(base, new CredentialStore(base, profile, secrets), secrets);
   const browser = dependencies.browser ?? openBrowser;
   const server = new Server({ name: 'pixelbank', version: '0.2.2' }, { supportedProtocolVersions: ['2026-07-28', '2025-11-25'], capabilities: { tools: { listChanged: true } },
-    instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools.' });
+    instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator\'s language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools.' });
   let catalog: Awaited<ReturnType<Auth['listCreativeTools']>> = [];
   server.onclose = () => { void auth.cancel(); };
   const discover = async (signal?: AbortSignal) => {
@@ -47,13 +48,23 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
         value = await uploadImage(auth, base, parseUploadInput(input), extra.mcpReq.signal);
       } else if (name === 'pixelbank_open_workspace') {
         value = await openPreparedWorkspace({ auth, browser, base, secrets }, input, options);
+      } else if (name === 'pixelbank_open_credits_page') {
+        if (Object.keys(input).length) throw new SafeError('INVALID_INPUT', 'The credit-page control accepts no URL, payment information or arguments.');
+        value = await openCreditsPage(browser);
       } else {
         if (isInternalUploadTool(name)) throw new SafeError('UNKNOWN_TOOL', 'Use pixelbank_upload_image for an explicitly selected local image.');
         if (!catalog.some(tool => tool.name === name)) catalog = await discover(extra.mcpReq.signal);
         if (!catalog.some(tool => tool.name === name)) throw new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
         value = await auth.callCreativeTool(name, input, options);
       }
-    } catch (error) { value = safeError(error); }
+    } catch (error) {
+      const failure = safeError(error);
+      if (error instanceof SafeError && error.code === 'NOT_ENOUGH_CREDIT') {
+        const recovery = await openCreditsPage(browser);
+        value = { error: { ...failure.error, credits_url: recovery.data.url,
+          credits_page_opened: recovery.data.opened } };
+      } else value = failure;
+    }
     const clean = secrets.clean(value) as Record<string, unknown>;
     return { content: [{ type: 'text' as const, text: JSON.stringify(clean) }], structuredContent: clean, isError: 'error' in clean };
   });

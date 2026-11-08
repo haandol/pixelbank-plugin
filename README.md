@@ -124,6 +124,8 @@ No. Connect your PixelbankStudio account through browser sign-in. Keep passwords
 
 The assistant checks the current price and available free uses before processing. It asks before spending credits unless you've enabled automatic confirmation in PixelbankStudio. If free-use availability can't be checked, a paid fallback still needs your approval. Browsing, quotes, and preparing or opening an editor workspace don't spend credits. See [pricing](https://www.pixelbankstudio.com/pricing).
 
+If credits are insufficient, the assistant explains the shortage, opens the credit purchase page and leaves a clickable link. After adding credits on the website, ask it to continue your original request.
+
 </details>
 
 <details>

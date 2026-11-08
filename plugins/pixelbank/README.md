@@ -91,7 +91,9 @@ Credentials are stored in owner-only files under `~/.pixelbank-plugin/`, separat
 
 Billable calls carry the approved credit maximum and one stable operation key. Retries must preserve both and the original request. The bridge does not automatically replay a write after an uncertain outcome. Accepted jobs are reported as accepted until the server reports completion or failure. Quotes and prepared-workspace opening do not consume free uses or credits.
 
-The bridge provides four local tools: `pixelbank_connect`, `pixelbank_disconnect`, `pixelbank_upload_image` and `pixelbank_open_workspace`. Other tools come from the authenticated server. Provider credentials, account administration and checkout are not exposed. Opening a workspace uses the default browser without controlling its active tab.
+The bridge provides five local tools: `pixelbank_connect`, `pixelbank_disconnect`, `pixelbank_upload_image`, `pixelbank_open_workspace` and `pixelbank_open_credits_page`. Other tools come from the authenticated server. Provider credentials, account administration and checkout are not exposed. Page opening uses the default browser without controlling its active tab.
+
+When a requested operation lacks credits, the bridge opens the [credit purchase page](https://www.pixelbankstudio.com/pricing) and returns its link. If opening is unavailable, use the same link. Choose and pay for a package on the website, then ask the assistant to continue your original request; it checks the updated balance, price and approval before proceeding. A usable free trial can still run with a zero balance. Opening the page does not add credits or automatically resubmit processing.
 
 If an image read returns `ASSET_NOT_FOUND`, refresh the library or choose an available image before continuing. This identifies a missing saved image rather than a temporary service outage.
 

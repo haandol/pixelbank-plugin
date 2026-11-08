@@ -1,10 +1,11 @@
 import { SafeError, uncertainOutcome } from './errors.js';
+import { CREDITS_PAGE_URL } from './credits.js';
 const messages: Record<string, string> = {
  AUTH_REQUIRED: 'PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connect to resume retained setup or recovery, or pixelbank_disconnect to finish cleanup. Preserve credential records.',
  CONNECTION_INACTIVE: 'This connection has been revoked. Reconnect with the same account before using creative tools.',
  CONNECTION_FORBIDDEN: 'The granted scopes do not permit this operation.',
  ASSET_NOT_FOUND: 'The requested image is unavailable. Refresh the library or choose another image.',
- NOT_ENOUGH_CREDIT: 'There are not enough credits. Top up in PixelbankStudio before retrying the original operation.',
+ NOT_ENOUGH_CREDIT: `There are not enough credits. Add credits at ${CREDITS_PAGE_URL}, then ask to continue the original request.`,
  FREE_TRIAL_UNAVAILABLE: 'Free-use availability could not be confirmed. Paid fallback requires separate consent for this operation.',
  CREDIT_PRICE_CHANGED: 'The current price exceeds the approved amount. Review a new quote before authorizing execution.',
  MCP_APPROVAL_INVALID: 'Review and authorize the exact operation and credit amount before execution.',

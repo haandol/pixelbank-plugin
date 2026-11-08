@@ -11,6 +11,19 @@
           "summary": "Require Bun for supported desktop plugin installation and use Bun throughout development and verification; ship bundled dependencies and bilingual setup guidance while retaining release checks."
         }
       ]
+    },
+    "interaction": {
+      "feature": "Desktop credit-shortage recovery",
+      "dependsOn": [
+        "distribution"
+      ],
+      "adrs": [
+        {
+          "path": "docs/adr/interaction/0001-credit-shortage-recovery.md",
+          "status": "Accepted (2026-11-08)",
+          "summary": "On confirmed insufficient credits, automatically open the fixed public credit page and retain its link; preserve free-use priority, manual purchasing, operation authority and browser-failure recovery."
+        }
+      ]
     }
   }
 }

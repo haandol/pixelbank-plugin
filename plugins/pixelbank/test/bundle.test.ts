@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cp, readFile, rm, access } from 'node:fs/promises';
+import { cp, readFile, rm, access, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/client';
@@ -42,7 +42,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`portable bun
   assert.equal((connection.structuredContent as any).data.status, 'connected');
   const disconnected = await client.callTool({ name: 'pixelbank_disconnect', arguments: {} });
   assert.equal((disconnected.structuredContent as any).data.status, 'disconnected'); assert.equal(await m.read(), undefined);
-  assert.equal((await client.listTools()).tools.length, 4);
+  assert.equal((await client.listTools()).tools.length, 5);
   await client.close(); assert.equal(stderr, '');
 });
 
@@ -139,6 +139,41 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   assert.deepEqual(result.structuredContent, { error: {
     code: 'ASSET_NOT_FOUND', message: 'The requested image is unavailable. Refresh the library or choose another image.',
   } });
+  assert.equal(m.rpcCalls().length, 1);
+  assert.deepEqual((m.rpcCalls()[0]!.body as any).params.arguments, input);
+  assert.equal(m.counts.refresh, 0); assert.equal(m.counts.disconnect, 0);
+});
+
+for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${protocol} stdio opens the fixed credit page once and retains its link without resubmission`, async t => {
+  const isolated = await tempDirectory(); t.after(() => rm(isolated, { recursive: true, force: true }));
+  await cp('dist', join(isolated, 'bundle'), { recursive: true });
+  const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
+  m.rpc.tools = [{ name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  m.hooks.rpc = (body, _req, res) => {
+    if (body.method !== 'tools/call') return false;
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+      jsonrpc: '2.0', id: body.id, result: { resultType: 'complete', isError: true, content: [],
+        structuredContent: { error: { code: 'NOT_ENOUGH_CREDIT', credit_cost: 5, retry_same_command: false } } },
+    })); return true;
+  };
+  const bin = join(isolated, 'bin'), opened = join(isolated, 'opened-page.txt');
+  await mkdir(bin);
+  const script = '#!/bin/sh\nprintf "%s\\n" "$1" >> "$PIXELBANK_TEST_OPEN_LOG"\n';
+  for (const name of ['open', 'xdg-open']) await writeFile(join(bin, name), script, { mode: 0o700 });
+  const transport = new StdioClientTransport({ command: process.execPath, args: [join(isolated, 'bundle', 'index.js')], cwd: isolated, stderr: 'pipe', env: {
+    PATH: `${bin}:${process.env.PATH!}`, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host',
+    PIXELBANK_CREDENTIALS_DIR: m.directory, PIXELBANK_TEST_OPEN_LOG: opened,
+  } });
+  const client = new Client({ name: 'credit-recovery-regression', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });
+  t.after(() => client.close()); await client.connect(transport, { timeout: 10_000 });
+  const input = { request: { options: { prompt: 'Robot' } }, operation_key: 'original-shortfall', maximum_credits: 5 };
+  const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: input });
+  assert.equal(result.isError, true);
+  assert.deepEqual(result.structuredContent, { error: {
+    code: 'NOT_ENOUGH_CREDIT', message: 'There are not enough credits. Add credits at https://www.pixelbankstudio.com/pricing, then ask to continue the original request.',
+    credit_cost: 5, retry_same_command: false, credits_url: 'https://www.pixelbankstudio.com/pricing', credits_page_opened: true,
+  } });
+  assert.equal(await readFile(opened, 'utf8'), 'https://www.pixelbankstudio.com/pricing\n');
   assert.equal(m.rpcCalls().length, 1);
   assert.deepEqual((m.rpcCalls()[0]!.body as any).params.arguments, input);
   assert.equal(m.counts.refresh, 0); assert.equal(m.counts.disconnect, 0);

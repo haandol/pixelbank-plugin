@@ -23,6 +23,10 @@ Upload only files the user selected. `pixelbank_upload_image` reads a local PNG,
 
 Read current prices and free uses. Explain the processing outcome and cost before submission, honoring the account's existing explicit credit-auto-confirm opt-in. Use a zero maximum when only a free use is authorized. A paid operation carries the approved maximum credits and one stable operation key. A free-use lookup failure requires separate consent for the exact paid fallback amount even when auto-confirm is enabled. Insufficient balance is not permission to change funding or repeat the call.
 
+When the selected task cannot be funded after eligible free uses, explain the shortage in the creator's language, show a clickable [PixelbankStudio credit page](https://www.pixelbankstudio.com/pricing), and call `pixelbank_open_credits_page` before submitting processing. A `NOT_ENOUGH_CREDIT` response has already attempted to open that page: show its `credits_url` link and use `credits_page_opened` to describe the outcome without opening it again. The creator chooses a credit package and completes payment on the website. When they ask to continue, re-read the account and any required quote, reconcile the original outcome, and preserve the original operation key and approved authority.
+
+A zero balance with an eligible free use is not a credit shortage. `FREE_TRIAL_UNAVAILABLE`, `CREDIT_PRICE_CHANGED` and `MCP_APPROVAL_INVALID` retain their separate consent or quote guidance. Page opening does not confirm purchase or authorize another processing call.
+
 For retries, retain the complete original request, operation key, budget and workflow context. An unknown outcome is not a failed job. Recover the original job or existing result; do not create a new key to repeat a possibly accepted operation. A new intentional generation using identical inputs still needs the existing duplicate-submission confirmation.
 
 ## Continue visual editing in PixelbankStudio

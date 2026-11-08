@@ -23,7 +23,7 @@ async function fixture(t: TestContext, connected = true) {
 test('disconnected catalog includes connection/local controls and never leaks the remote catalog', async t => {
   const { m, client } = await fixture(t, false);
   const result = await client.listTools();
-  assert.deepEqual(result.tools.map(t => t.name).sort(), ['pixelbank_connect', 'pixelbank_disconnect', 'pixelbank_open_workspace', 'pixelbank_upload_image']);
+  assert.deepEqual(result.tools.map(t => t.name).sort(), ['pixelbank_connect', 'pixelbank_disconnect', 'pixelbank_open_credits_page', 'pixelbank_open_workspace', 'pixelbank_upload_image']);
   assert.equal(m.requests.length, 0);
   const denied = await client.callTool({ name: 'pixelbank_connect', arguments: { access_token: 'supplied-secret' } });
   assert.equal(denied.isError, true); assert.ok(!JSON.stringify(denied).includes('supplied-secret'));
@@ -42,9 +42,9 @@ test('authenticated catalog preserves remote schemas/annotations but keeps uploa
   assert.equal(m.rpcCalls().length, 0);
 });
 
-test('remote catalog cannot replace local controls, including calls made before tools/list', async t => {
+for (const control of ['pixelbank_connect', 'pixelbank_open_credits_page']) test(`remote catalog cannot replace ${control}, including calls made before tools/list`, async t => {
   const { m, client } = await fixture(t);
-  m.rpc.tools = [{ name: 'pixelbank_connect', inputSchema: { type: 'object' } }, { name: 'pixelbank_test', inputSchema: { type: 'object' } }];
+  m.rpc.tools = [{ name: control, inputSchema: { type: 'object' } }, { name: 'pixelbank_test', inputSchema: { type: 'object' } }];
   const result = await client.callTool({ name: 'pixelbank_test', arguments: {} });
   assert.equal(result.isError, true); assert.equal((result.structuredContent as any).error.code, 'INVALID_CATALOG');
   assert.equal(m.rpcCalls().length, 0);
@@ -106,4 +106,77 @@ test('host cancellation closes the remote request stream without replaying the a
   await acceptance; abort.abort(); await rejection;
   await Promise.race([closure, delay(1000).then(() => assert.fail('remote stream remained open after host cancellation'))]);
   assert.equal(m.rpcCalls().length, 1); assert.equal((m.rpcCalls()[0]!.body as any).params.arguments.operation_key, 'retain-me');
+});
+
+test('credit page opens the fixed public destination without sign-in, payment input or remote calls', async t => {
+  const { m, client, opens, settings } = await fixture(t, false);
+  const creditsUrl = 'https://www.pixelbankstudio.com/pricing';
+  const opened = await client.callTool({ name: 'pixelbank_open_credits_page', arguments: {} });
+  assert.deepEqual(opened.structuredContent, { data: { url: creditsUrl, opened: true } });
+  assert.deepEqual(opens, [creditsUrl]); assert.equal(m.requests.length, 0);
+  for (const input of [{ url: 'https://attacker.invalid' }, { plan_id: 'plan' }, { access_token: 'supplied-secret' }]) {
+    const denied = await client.callTool({ name: 'pixelbank_open_credits_page', arguments: input });
+    assert.equal(denied.isError, true);
+  }
+  assert.equal(opens.length, 1); assert.equal(m.requests.length, 0);
+  settings.unavailable = true;
+  const fallback = await client.callTool({ name: 'pixelbank_open_credits_page', arguments: {} });
+  assert.equal((fallback.structuredContent as any).data.opened, false);
+  assert.equal((fallback.structuredContent as any).data.url, creditsUrl);
+  assert.equal(fallback.isError, false);
+});
+
+for (const browserUnavailable of [false, true]) test(`insufficient credits opens its fixed recovery page and preserves the refusal when browser unavailable=${browserUnavailable}`, async t => {
+  const { m, client, opens, settings } = await fixture(t); settings.unavailable = browserUnavailable;
+  const creditsUrl = 'https://www.pixelbankstudio.com/pricing';
+  m.rpc.tools = [{ name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  m.hooks.rpc = (body, _req, res) => {
+    if (body.method !== 'tools/call') return false;
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+      jsonrpc: '2.0', id: body.id, result: { resultType: 'complete', isError: true, content: [],
+        structuredContent: { error: { code: 'NOT_ENOUGH_CREDIT', credit_cost: 5, retry_same_command: false,
+          recovery_url: 'https://attacker.invalid', message: 'private-provider-detail' } } },
+    })); return true;
+  };
+  const input = { request: { options: { prompt: 'Robot' } }, operation_key: 'original-credit-operation', maximum_credits: 5 };
+  const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: input });
+  assert.equal(result.isError, true);
+  assert.deepEqual(result.structuredContent, { error: {
+    code: 'NOT_ENOUGH_CREDIT', message: `There are not enough credits. Add credits at ${creditsUrl}, then ask to continue the original request.`,
+    credit_cost: 5, retry_same_command: false, credits_url: creditsUrl, credits_page_opened: !browserUnavailable,
+  } });
+  assert.deepEqual(opens, [creditsUrl]); assert.equal(m.rpcCalls().length, 1);
+  assert.deepEqual((m.rpcCalls()[0]!.body as any).params.arguments, input);
+  assert.equal(m.counts.refresh, 0); assert.equal(m.counts.disconnect, 0);
+  assert.ok(!JSON.stringify(result).includes('attacker.invalid'));
+  assert.ok(!JSON.stringify(result).includes('private-provider-detail'));
+});
+
+test('free-use lookup, price and consent refusals keep their recovery without credit-page navigation', async t => {
+  const { m, client, opens } = await fixture(t);
+  m.rpc.tools = [{ name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  for (const code of ['FREE_TRIAL_UNAVAILABLE', 'CREDIT_PRICE_CHANGED', 'MCP_APPROVAL_INVALID']) {
+    m.hooks.rpc = (body, _req, res) => {
+      if (body.method !== 'tools/call') return false;
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+        jsonrpc: '2.0', id: body.id, result: { resultType: 'complete', isError: true, content: [],
+          structuredContent: { error: { code, credit_cost: 5 } } },
+      })); return true;
+    };
+    const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: { operation_key: code, maximum_credits: 5 } });
+    assert.equal(result.isError, true); assert.equal((result.structuredContent as any).error.code, code);
+    assert.equal((result.structuredContent as any).error.credits_url, undefined);
+  }
+  assert.equal(opens.length, 0); assert.equal(m.rpcCalls().length, 3);
+});
+
+test('zero balance with a valid free-use result does not open credit recovery', async t => {
+  const { m, client, opens } = await fixture(t);
+  m.rpc.tools = [{ name: 'pixelbank_get_account', inputSchema: { type: 'object' } }, { name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  m.flags.apiBody = { data: { credits: 0, free_uses: { generation: 1 } } };
+  const account = await client.callTool({ name: 'pixelbank_get_account', arguments: {} });
+  assert.equal(account.isError, false);
+  m.flags.apiBody = { data: { generation_id: 'free-job', status: 'PENDING', used_free_trial: true } };
+  const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: { operation_key: 'free-original', maximum_credits: 0 } });
+  assert.equal(result.isError, false); assert.equal(opens.length, 0);
 });

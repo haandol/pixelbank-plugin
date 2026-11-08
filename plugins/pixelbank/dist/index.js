@@ -24668,13 +24668,28 @@ async function bootstrap(base) {
   return validateOAuth(data.oauth, base);
 }
 
+// src/credits.ts
+var CREDITS_PAGE_URL = "https://www.pixelbankstudio.com/pricing";
+async function openCreditsPage(browser) {
+  try {
+    await browser(CREDITS_PAGE_URL);
+    return { data: { url: CREDITS_PAGE_URL, opened: true } };
+  } catch {
+    return { data: {
+      url: CREDITS_PAGE_URL,
+      opened: false,
+      message: "Open this link to add credits in PixelbankStudio, then ask to continue your original request."
+    } };
+  }
+}
+
 // src/api-errors.ts
 var messages = {
   AUTH_REQUIRED: "PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connect to resume retained setup or recovery, or pixelbank_disconnect to finish cleanup. Preserve credential records.",
   CONNECTION_INACTIVE: "This connection has been revoked. Reconnect with the same account before using creative tools.",
   CONNECTION_FORBIDDEN: "The granted scopes do not permit this operation.",
   ASSET_NOT_FOUND: "The requested image is unavailable. Refresh the library or choose another image.",
-  NOT_ENOUGH_CREDIT: "There are not enough credits. Top up in PixelbankStudio before retrying the original operation.",
+  NOT_ENOUGH_CREDIT: `There are not enough credits. Add credits at ${CREDITS_PAGE_URL}, then ask to continue the original request.`,
   FREE_TRIAL_UNAVAILABLE: "Free-use availability could not be confirmed. Paid fallback requires separate consent for this operation.",
   CREDIT_PRICE_CHANGED: "The current price exceeds the approved amount. Review a new quote before authorizing execution.",
   MCP_APPROVAL_INVALID: "Review and authorize the exact operation and credit amount before execution.",
@@ -43321,6 +43336,11 @@ var localTools = [
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
+    name: "pixelbank_open_credits_page",
+    description: "Open the PixelbankStudio credit purchase page in the default browser. Opening never selects a plan, pays, adds credits or retries processing.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
     name: "pixelbank_open_workspace",
     description: "Open an owned prepared PixelbankStudio workspace in the default browser. Opening applies initial settings and never starts paid processing.",
     inputSchema: {
@@ -43349,7 +43369,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   const server = new Server({ name: "pixelbank", version: "0.2.2" }, {
     supportedProtocolVersions: ["2026-07-28", "2025-11-25"],
     capabilities: { tools: { listChanged: true } },
-    instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. Connect before discovering account tools."
+    instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator's language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools."
   });
   let catalog = [];
   server.onclose = () => {
@@ -43389,6 +43409,10 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
         value = await uploadImage(auth, base, parseUploadInput(input), extra.mcpReq.signal);
       } else if (name === "pixelbank_open_workspace") {
         value = await openPreparedWorkspace({ auth, browser, base, secrets }, input, options);
+      } else if (name === "pixelbank_open_credits_page") {
+        if (Object.keys(input).length)
+          throw new SafeError("INVALID_INPUT", "The credit-page control accepts no URL, payment information or arguments.");
+        value = await openCreditsPage(browser);
       } else {
         if (isInternalUploadTool(name))
           throw new SafeError("UNKNOWN_TOOL", "Use pixelbank_upload_image for an explicitly selected local image.");
@@ -43399,7 +43423,16 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
         value = await auth.callCreativeTool(name, input, options);
       }
     } catch (error) {
-      value = safeError(error);
+      const failure = safeError(error);
+      if (error instanceof SafeError && error.code === "NOT_ENOUGH_CREDIT") {
+        const recovery = await openCreditsPage(browser);
+        value = { error: {
+          ...failure.error,
+          credits_url: recovery.data.url,
+          credits_page_opened: recovery.data.opened
+        } };
+      } else
+        value = failure;
     }
     const clean = secrets.clean(value);
     return { content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean, isError: "error" in clean };

@@ -34,6 +34,11 @@ export const localTools: ToolCatalog = [
     inputSchema: { type: 'object' as const, properties: {}, additionalProperties: false },
   },
   {
+    name: 'pixelbank_open_credits_page',
+    description: 'Open the PixelbankStudio credit purchase page in the default browser. Opening never selects a plan, pays, adds credits or retries processing.',
+    inputSchema: { type: 'object' as const, properties: {}, additionalProperties: false },
+  },
+  {
     name: 'pixelbank_open_workspace',
     description:
       'Open an owned prepared PixelbankStudio workspace in the default browser. Opening applies initial settings and never starts paid processing.',
