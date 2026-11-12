@@ -42,7 +42,7 @@ test('authenticated catalog preserves remote schemas/annotations but keeps uploa
   assert.equal(m.rpcCalls().length, 0);
 });
 
-for (const control of ['pixelbank_connect', 'pixelbank_open_credits_page']) test(`remote catalog cannot replace ${control}, including calls made before tools/list`, async t => {
+for (const control of ['pixelbank_connect', 'pixelbank_open_credits_page', 'pixelbank_wait_for_workflow']) test(`remote catalog cannot replace ${control}, including calls made before tools/list`, async t => {
   const { m, client } = await fixture(t);
   m.rpc.tools = [{ name: control, inputSchema: { type: 'object' } }, { name: 'pixelbank_test', inputSchema: { type: 'object' } }];
   const result = await client.callTool({ name: 'pixelbank_test', arguments: {} });
@@ -61,6 +61,41 @@ test('workspace open resolves the exact owned ID, invokes only the injected open
   result = await client.callTool({ name: 'pixelbank_open_workspace', arguments: { workspace_id: id } });
   assert.equal((result.structuredContent as any).data.opened, false); assert.equal((result.structuredContent as any).data.url, url);
   assert.ok(m.rpcCalls().every(r => (r.body as any).params.name === 'pixelbank_get_workspace'));
+});
+
+test('remote calls validate a refreshed contract even after an earlier discovery', async t => {
+  const { m, client } = await fixture(t);
+  m.rpc.tools = [{ name: 'pixelbank_test', inputSchema: { type: 'object', properties: { run_id: { type: 'string' } },
+    required: ['run_id'], additionalProperties: false } }];
+  await client.listTools();
+  m.rpc.tools[0]!.inputSchema = { type: 'object', properties: { run_id: { type: 'string' }, revision: { type: 'integer', minimum: 1 } },
+    required: ['run_id', 'revision'], additionalProperties: false };
+  const denied = await client.callTool({ name: 'pixelbank_test', arguments: { run_id: 'run' } });
+  assert.equal((denied.structuredContent as any).error.code, 'INVALID_INPUT');
+  assert.equal(m.rpcCalls().length, 0);
+  m.flags.apiBody = { data: { accepted: true } };
+  const accepted = await client.callTool({ name: 'pixelbank_test', arguments: { run_id: 'run', revision: 1 } });
+  assert.notEqual(accepted.isError, true);
+  assert.equal(m.rpcCalls().length, 1);
+});
+
+test('workflow wait is discovered conditionally and dispatches only the status read', async t => {
+  const { m, client } = await fixture(t);
+  m.rpc.tools = [{ name: 'pixelbank_get_workflow_status', inputSchema: { type: 'object',
+    properties: { run_id: { type: 'string', minLength: 1 } }, required: ['run_id'], additionalProperties: false } }];
+  const catalog = await client.listTools();
+  assert.ok(catalog.tools.some(tool => tool.name === 'pixelbank_wait_for_workflow'));
+  m.flags.apiBody = { data: { run_id: 'run', status: 'completed', revision: 3, pollable: false, terminal: true,
+    poll_after_seconds: 0, completed_steps: 2, total_steps: 2 } };
+  const result = await client.callTool({ name: 'pixelbank_wait_for_workflow', arguments: { run_id: 'run', max_wait_seconds: 1 } });
+  assert.equal((result.structuredContent as any).wait.reason, 'terminal');
+  assert.deepEqual(m.rpcCalls().map(call => (call.body as any).params.name), ['pixelbank_get_workflow_status']);
+  m.rpc.tools = [];
+  const refreshed = await client.listTools();
+  assert.ok(!refreshed.tools.some(tool => tool.name === 'pixelbank_wait_for_workflow'));
+  const missing = await client.callTool({ name: 'pixelbank_wait_for_workflow', arguments: { run_id: 'run' } });
+  assert.equal((missing.structuredContent as any).error.code, 'UNKNOWN_TOOL');
+  assert.equal(m.rpcCalls().length, 1);
 });
 
 test('workspace URLs cannot substitute identity, editor, navigation credentials or arbitrary hosts', async t => {

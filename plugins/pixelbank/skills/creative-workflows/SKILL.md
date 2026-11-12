@@ -13,9 +13,11 @@ For a complex request shape, consult the packaged [tool contracts](../../contrac
 
 ## Choose a creative workflow
 
-For a multi-step result, use a saved workflow rather than treating its steps as unrelated jobs. Food promotion and product background replacement prepare a cutout, compose an image and select a final result. Banner preparation composes, optionally upscales and selects a result. Create the requested definition once and preserve its run ID. A direct request such as background removal can use the basic tool without creating a workflow.
+For a multi-step result, discover supported definitions and create the requested workflow once. Supply its required inputs and preserve the run ID and acknowledged revision. Quote the selected plan, obtain its required bounded cost authority, and call `pixelbank_execute_workflow` once with the original action ID and quoted maximum. Automatic workflows choose their declared preparation path and save final results in the normal library without intermediate user actions. A direct request such as background removal can use the basic tool without creating a workflow.
 
-Every workflow action retains its action ID and the acknowledged revision. Read the current run before choosing the next permitted action. Use an existing prepared asset when the workflow permits it. Never treat a page opening, preview, poll or tab closing as a completed step. Final acceptance comes from the creator.
+For an accepted execution, use `pixelbank_get_workflow_status` or the bounded `pixelbank_wait_for_workflow` helper. Follow the returned poll delay and stop on completed or failed state. Wait cancellation or expiry does not cancel the server execution. Do not require metadata confirmation, manual box drawing, per-step continuation or final acceptance. A failed execution preserves its history and saved assets; a new execution needs the creator's retry intent.
+
+Earlier guided runs retain their captured action and selection rules. Every such action keeps its action ID and acknowledged revision. A page opening, preview, poll or tab closing is not a completed step. Do not apply guided actions to an active automatic execution.
 
 ## Prepare images and cost authority
 
@@ -35,9 +37,9 @@ Background removal and other fully specified operations can run directly. Intera
 
 Prepare the workspace with owned asset references and the agreed settings. Generation preparation can carry ordered images, layer/object roles, names, normalized position/size, visibility, locks, canvas framing and the draft prompt. Use the current supported schema; the web editor currently does not support nonzero layer rotation. An object reference requires its name, and at most five object references are accepted. Ordinary composed layers do not spend that reference budget.
 
-Bind preparation to the current workflow run, step and revision when it belongs to a workflow. Every prepared source must already belong to that run, and the selected step inputs must remain included. Attach an additional owned source through the workflow action first, then use the returned revision. Call `pixelbank_open_workspace` with the returned workspace ID when the user wants to open it, and retain the returned URL. Opening loads initial settings without processing or charging. Subsequent browser edits are not autosaved by the handoff record. Do not replace unrelated unsaved work.
+For additional edits to automatic results, prepare a standalone expert workspace from the saved library image, without a workflow execution context. Bind preparation to the current run, step and revision only for a legacy guided workflow. For that guided context, every prepared source must already belong to the run, and the selected step inputs must remain included; attach any additional owned source first and use the returned revision. Call `pixelbank_open_workspace` with the returned workspace ID when the user wants to open it, and retain the returned URL. Opening loads initial settings without processing or charging. Subsequent browser edits are not autosaved by the handoff record. Do not replace unrelated unsaved work.
 
-When the creator returns from the web editor, inspect the same workflow and the result they selected. Continue with its permitted next action. A stale preparation, changed run or deleted source requires reconciliation from current acknowledged state; do not overwrite a newer choice or fabricate completion.
+When the creator returns from a guided workflow's web editor, inspect the same run and selected result, then continue with its permitted next action. A standalone expert edit leaves its original automatic workflow complete. A stale preparation, changed run or deleted source requires reconciliation from current acknowledged state; do not overwrite a newer choice or fabricate completion.
 
 ## Preserve results and ownership
 

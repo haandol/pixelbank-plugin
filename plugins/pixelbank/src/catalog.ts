@@ -2,6 +2,7 @@ import type { Auth } from './auth.js';
 import { SafeError } from './errors.js';
 import { UPLOAD_PURPOSES } from './upload.js';
 import { WORKSPACE_ID } from './workspace.js';
+import { WORKFLOW_WAIT_TOOL } from './workflow.js';
 
 type ToolCatalog = Awaited<ReturnType<Auth['listCreativeTools']>>;
 const internalUploadTools = ['pixelbank_issue_upload', 'pixelbank_save_source'];
@@ -58,7 +59,7 @@ export function isInternalUploadTool(name: string): boolean {
 
 /** A remote catalog cannot replace the bridge's connection or local-file controls. */
 export function assertNoLocalOverrides(tools: ToolCatalog): void {
-  if (tools.some((tool) => localTools.some((local) => local.name === tool.name))) {
+  if (tools.some((tool) => tool.name === WORKFLOW_WAIT_TOOL || localTools.some((local) => local.name === tool.name))) {
     throw new SafeError('INVALID_CATALOG', 'Remote tools cannot replace connection controls.');
   }
 }

@@ -66,20 +66,20 @@ The snapshot describes interfaces; the connected server determines which tools a
 | --- | --- |
 | Prepare and reuse images | Upload an explicitly selected local PNG, JPEG or WebP; inspect owned assets, previews and original downloads; save inputs and manage selected metadata. |
 | Process a specified image | Remove backgrounds, submit complete segmentation or image-generation inputs, quote and submit upscaling, then inspect saved output or job status. |
-| Work across creative steps | Start a saved workflow, attach its inputs, perform a supported step, select its output and continue with the acknowledged run revision. |
+| Complete a saved workflow | Discover a task, supply its inputs and authorize the quoted plan. The server completes automatic work and saves library results while the assistant checks progress. |
 | Animate and edit visually | Generate and inspect animations, recompose or correct frames, and prepare segmentation or generation workspaces for web editing. |
 
 This release covers image and animation operations and their workflows. Space, previsualization, video import and video generation execution are deferred and unavailable through MCP.
 
 For example:
 
-> Use this product photo to make a promotional banner. Remove its background, prepare a composition with room for copy, and open PixelbankStudio so I can adjust the layers.
+> Use this product photo to make a promotional banner and save the result in my library.
 
-The assistant uploads only the selected file, checks the current price and free uses, and starts the workflow. It prepares an owner-only web link carrying the original images, supported layer settings and draft prompt. Opening the link loads those settings without running image processing or charging credits. Sign in to PixelbankStudio with the same account to edit them.
+The assistant discovers the connected service's available tasks, uploads only the selected image, and obtains the required authority for a bounded plan. An automatic workflow performs its declared steps without manual metadata confirmation, box drawing, intermediate selection or final acceptance. The assistant reports actual progress and returns saved library results.
 
-After editing, select the result in the workflow and tell the assistant to continue. It reads the same saved run and its permitted next action. Opening or closing a tab does not complete a step. Final acceptance remains explicit.
+Progress reads follow the server's recommended interval. A brief wait can end while the server continues working; the assistant can inspect the same run later. Completion and failure both stop polling, and stopping a wait never resubmits or cancels processing.
 
-Workflow progress is saved when you leave. Return to the same run to continue, or reopen a completed run to edit its result.
+For further changes, ask to open a saved result in the image editor. This prepares independent expert work and preserves the completed workflow history. Earlier guided runs retain their recorded selection and continuation actions.
 
 A preparation is an immutable initial setup, retained until account deletion. Reopening restores that setup; later canvas edits are not autosaved by this feature. New preparations use new operation keys. Stale workflow revisions, missing images and unrelated unsaved work are rejected with recovery instructions. Generation supports at most five named object references, plus composed layers; nonzero layer rotation is currently unsupported.
 

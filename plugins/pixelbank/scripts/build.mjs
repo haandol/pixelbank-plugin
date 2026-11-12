@@ -39,5 +39,6 @@ const hash = async path => createHash('sha256').update(await readFile(path)).dig
 await writeFile('dist/build-info.json', JSON.stringify({
   version: metadata.version, bun: metadata.engines.bun, builtWithBun: Bun.version, dependencies: metadata.dependencies,
   bundleSha256: await hash('dist/index.js'), contractsSha256: await hash('contracts/tools.json'),
+  workflowOpenapiSha256: await hash('contracts/workflows.openapi.json'),
   inputs, externals: [...new Set(Object.values(metafile.outputs).flatMap(output => output.imports.filter(item => item.external).map(item => item.path)))].sort(),
 }, null, 2) + '\n');

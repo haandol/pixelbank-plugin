@@ -35,10 +35,32 @@ For an explicitly configured isolated server, `PIXELBANK_API_BASE_URL` accepts a
 
 ## Versions and consumer integration
 
+### Live catalog and generated contracts
+
+The bridge refreshes authenticated `tools/list` before forwarding a remote call and validates arguments against that schema. A new API field does not require a second handwritten plugin schema. Only explicitly exposed remote tools can be called; OpenAPI never enables arbitrary endpoints.
+
+The package contains `contracts/tools.json` for the complete remote tool catalog and `contracts/workflows.openapi.json` for workflow HTTP operations. These generated files describe interfaces for offline reading and reproducible builds. The live catalog remains authoritative for availability and permissions.
+
+To consume a local directory containing exported `mcp-tools.json` and `workflows.openapi.json`:
+
+```sh
+git config --local pixelbank.apiContractSource /absolute/path/to/public-contract-exports
+bun run contracts:sync
+bun run contracts:check
+```
+
+Both files are validated before replacement. With a configured source, verification fails on drift; without it, public builds validate the bundled contracts and need no service checkout. The service's optional commit hook can update these two public files directly, preserving unrelated plugin edits. Neither route edits implementation, commits, pushes or releases the plugin.
+
+### Bounded workflow progress
+
+When the remote catalog exposes `pixelbank_get_workflow_status`, the bridge adds `pixelbank_wait_for_workflow`. It inherits the live status arguments and adds `max_wait_seconds` (1–60, default 30). Status requests wait at least 5 seconds, follow larger server delays and back off when the revision is unchanged. A retry-after refusal is returned unchanged. Terminal or inactive states stop polling; expiry and cancellation leave the accepted server execution running.
+
+### Version and artifact identity
+
 Keep version `0.2.3` synchronized across the root workspace, plugin package, lockfile workspace entry, host manifests and marketplace metadata. Naming and layout corrections do not change the API or require a version bump. The plugin version and API contract version are separate.
 
 Release verification tests use Git and unzip, both provided by the Dev Container and verification images.
 
-A consumer pins an exact repository commit and hashes `plugins/pixelbank/dist/index.js` and `plugins/pixelbank/contracts/tools.json`. Verification must point at the repository root and resolve the package below `plugins/pixelbank`; the package alone remains sufficient for an installed runtime.
+A consumer pins an exact repository commit and hashes the bundle, tool snapshot and workflow OpenAPI snapshot. Verification must point at the repository root and resolve the package below `plugins/pixelbank`; the package alone remains sufficient for an installed runtime.
 
 Local checks and commits do not authorize publishing. Preserve existing Git hooks and security controls. Pushes and GitHub Releases run only in the release container; follow [Container pushes and versioned releases](releases.md). `bun run check:container` verifies committed source in the Bun image and is the receipt every push requires.

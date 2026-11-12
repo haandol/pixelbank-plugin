@@ -7,8 +7,8 @@
       "adrs": [
         {
           "path": "docs/adr/distribution/0001-bun-plugin-runtime.md",
-          "status": "Accepted (2026-11-08)",
-          "summary": "Require Bun for supported desktop plugin installation and use Bun throughout development and verification; ship bundled dependencies and bilingual setup guidance while retaining release checks."
+          "status": "Accepted (2026-11-12)",
+          "summary": "Retain Bun installation and verified bilingual distribution; validate live remote contracts, synchronize public snapshots and provide bounded read-only workflow waiting."
         }
       ]
     },

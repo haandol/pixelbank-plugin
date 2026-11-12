@@ -6,7 +6,7 @@ Date: 2026-11-07
 
 ## Status
 
-Accepted (2026-11-08)
+Accepted (2026-11-12)
 
 ## Purpose
 
@@ -26,6 +26,25 @@ This decision owns the independently distributed desktop plugin's runtime and de
 Use Bun for the PixelbankStudio Plugin's desktop execution, dependency preparation, build and verification. A Bun installation is an explicit customer prerequisite. The independently installable package contains the executable bundle, skills, public tool contracts and required notices.
 
 Development and automated verification use the same recorded Bun version. Supported desktop environments remain macOS and Linux. Bun's compatible standard-library APIs may implement the existing MCP and private-file behavior; the runtime choice does not change the remote service's authority.
+
+### Live and published tool contracts
+
+The authenticated remote catalog is authoritative for current tool availability
+and request schemas. The bridge validates supplied arguments against that current
+contract before forwarding a call; no schema file grants a capability or a scope.
+The package's public contract snapshot is generated from the service's shared
+contracts and supports offline reading and reproducible releases. A local sync
+command may read the service's exported public artifact and update only the
+packaged public contract. It never imports private source, secrets or user data,
+and a stale configured source fails verification rather than publishing a mixed
+bundle. Live discovery remains usable when a source checkout is unavailable.
+
+The bridge provides a read-only bounded workflow wait when the server advertises
+the matching status operation. The wait accepts 1–60 seconds, defaults to 30,
+and uses at least 5 seconds between ordinary reads while honoring longer server
+delays and retry-after refusals. Wait cancellation or expiry leaves the accepted
+server execution running, preserves its identity and returns the latest observed
+state. The helper follows server timing and never turns a poll into a write.
 
 ### Requirement contract
 

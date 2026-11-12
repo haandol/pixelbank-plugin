@@ -148,19 +148,109 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Start a food promotion, product-background or banner workflow. Starting does not process images.",
+      "description": "Create a saved workflow from a supported definition; this does not start processing.",
       "inputSchema": {
+        "$defs": {
+          "WorkflowSource": {
+            "additionalProperties": false,
+            "properties": {
+              "asset": {
+                "additionalProperties": false,
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "namespace": {
+                    "enum": [
+                      "workflow",
+                      "background",
+                      "segmentation",
+                      "generation",
+                      "upscaling"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "namespace",
+                  "filename"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "asset_id": {
+                "type": "string"
+              },
+              "hash": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "metadata": true,
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              },
+              "sources": {
+                "items": {
+                  "$ref": "#/$defs/WorkflowSource"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "step_key": {
+                "type": "string"
+              },
+              "step_revision": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "step_key",
+              "step_revision"
+            ],
+            "type": "object"
+          }
+        },
         "additionalProperties": false,
         "properties": {
           "definition_key": {
-            "enum": [
-              "food",
-              "product",
-              "banner"
-            ],
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                "..",
+                "space",
+                "previsualization",
+                "video",
+                "video-generation",
+                "previs",
+                "animation"
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
             "type": "string"
           },
           "operation_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
             "type": "string"
           }
         },
@@ -251,6 +341,206 @@
         "type": "object"
       },
       "name": "pixelbank_delete_asset",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Delete the explicitly selected owned workflow and its private history; normal library results survive.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_delete_workflow",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision and max_credits. The server completes all declared steps and saves library results; poll status without further writes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "request": {
+            "$defs": {
+              "WorkflowSource": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "filename": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "enum": [
+                          "workflow",
+                          "background",
+                          "segmentation",
+                          "generation",
+                          "upscaling"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "filename"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "asset_id": {
+                    "type": "string"
+                  },
+                  "hash": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "metadata": true,
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "sources": {
+                    "items": {
+                      "$ref": "#/properties/request/$defs/WorkflowSource"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "step_key": {
+                    "type": "string"
+                  },
+                  "step_revision": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "name",
+                  "kind",
+                  "step_key",
+                  "step_revision"
+                ],
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "action_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "enum": [
+                    ".",
+                    ".."
+                  ]
+                },
+                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "instructions": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "max_credits": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "options": {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              "presets": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "type": "object"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "action_id",
+              "revision",
+              "max_credits"
+            ],
+            "type": "object"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request",
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_execute_workflow",
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"
@@ -729,6 +1019,12 @@
               },
               "save_results": {
                 "type": "boolean"
+              },
+              "workflow_preset": {
+                "type": [
+                  "null",
+                  "string"
+                ]
               }
             },
             "required": [
@@ -887,11 +1183,20 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "Inspect selected image assets and attempts in a supported saved workflow after MCP or web work.",
+      "description": "Read the saved workflow, source references and library results. Acceptance is not completion.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
             "type": "string"
           }
         },
@@ -901,6 +1206,76 @@
         "type": "object"
       },
       "name": "pixelbank_get_workflow",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read the saved history of a supported owned workflow.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_get_workflow_activity",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read workflow progress without processing. Follow poll_after_seconds; stop when pollable is false.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_get_workflow_status",
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"
@@ -927,6 +1302,203 @@
         "type": "object"
       },
       "name": "pixelbank_get_workspace",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Attach a workflow-input upload reference to the selected input step. Preserve the complete upload reference.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "request": {
+            "$defs": {
+              "WorkflowSource": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "filename": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "enum": [
+                          "workflow",
+                          "background",
+                          "segmentation",
+                          "generation",
+                          "upscaling"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "filename"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "asset_id": {
+                    "type": "string"
+                  },
+                  "hash": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "metadata": true,
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "sources": {
+                    "items": {
+                      "$ref": "#/properties/request/$defs/WorkflowSource"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "step_key": {
+                    "type": "string"
+                  },
+                  "step_revision": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "name",
+                  "kind",
+                  "step_key",
+                  "step_revision"
+                ],
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "action_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "enum": [
+                    ".",
+                    ".."
+                  ]
+                },
+                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+                "type": "string"
+              },
+              "image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
+                    "type": "string"
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "step_key": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "enum": [
+                    ".",
+                    ".."
+                  ]
+                },
+                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "action_id",
+              "revision",
+              "step_key",
+              "image"
+            ],
+            "type": "object"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request",
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_import_workflow_source",
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"
@@ -1085,9 +1657,47 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "List saved image workflows and the supported food, product and banner definitions.",
+      "description": "Discover supported workflow definitions and their required inputs before creating a run.",
       "inputSchema": {
         "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "pixelbank_list_workflow_definitions",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List supported saved workflows and definitions. Optional paging retains continuation metadata.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 50,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "completed",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "name": "pixelbank_list_workflows",
@@ -1431,6 +2041,154 @@
         "type": "object"
       },
       "name": "pixelbank_quote_upscaling",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Quote the finite automatic plan before authorization. This starts no processing.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "request": {
+            "$defs": {
+              "WorkflowSource": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "filename": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "enum": [
+                          "workflow",
+                          "background",
+                          "segmentation",
+                          "generation",
+                          "upscaling"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "filename"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "asset_id": {
+                    "type": "string"
+                  },
+                  "hash": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "metadata": true,
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "sources": {
+                    "items": {
+                      "$ref": "#/properties/request/$defs/WorkflowSource"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "step_key": {
+                    "type": "string"
+                  },
+                  "step_revision": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "name",
+                  "kind",
+                  "step_key",
+                  "step_revision"
+                ],
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "action_id": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "instructions": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "max_credits": {
+                "type": "integer"
+              },
+              "options": {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              "presets": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "type": "object"
+              },
+              "revision": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_quote_workflow",
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"
@@ -2253,14 +3011,122 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Apply an explicit action to a supported image workflow using its original action ID and expected revision.",
+      "description": "Supply an input or apply an allowed legacy action at the acknowledged revision. Running automatic inputs cannot change.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "action": {
+            "$defs": {
+              "WorkflowSource": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "filename": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "enum": [
+                          "workflow",
+                          "background",
+                          "segmentation",
+                          "generation",
+                          "upscaling"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "filename"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "asset_id": {
+                    "type": "string"
+                  },
+                  "hash": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "metadata": true,
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "sources": {
+                    "items": {
+                      "$ref": "#/properties/action/$defs/WorkflowSource"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "step_key": {
+                    "type": "string"
+                  },
+                  "step_revision": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "name",
+                  "kind",
+                  "step_key",
+                  "step_revision"
+                ],
+                "type": "object"
+              }
+            },
             "additionalProperties": false,
+            "else": {
+              "properties": {
+                "step_key": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "not": {
+                    "enum": [
+                      ".",
+                      ".."
+                    ]
+                  },
+                  "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "step_key"
+              ]
+            },
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "reopen"
+                  ]
+                }
+              }
+            },
             "properties": {
               "action_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "enum": [
+                    ".",
+                    ".."
+                  ]
+                },
+                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
                 "type": "string"
               },
               "asset": {
@@ -2292,6 +3158,15 @@
               "asset_id": {
                 "type": "string"
               },
+              "description": {
+                "type": "string"
+              },
+              "inspection_id": {
+                "type": "string"
+              },
+              "instructions": {
+                "type": "string"
+              },
               "kind": {
                 "enum": [
                   "activate",
@@ -2301,32 +3176,65 @@
                   "next",
                   "skip",
                   "complete",
-                  "reopen"
+                  "reopen",
+                  "set_instructions",
+                  "confirm_metadata"
                 ],
                 "type": "string"
               },
+              "metadata": true,
+              "reason": {
+                "type": "string"
+              },
               "revision": {
+                "minimum": 1,
                 "type": "integer"
               },
               "step_key": {
-                "type": "string"
+                "anyOf": [
+                  {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "not": {
+                      "enum": [
+                        ".",
+                        ".."
+                      ]
+                    },
+                    "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+                    "type": "string"
+                  },
+                  {
+                    "enum": [
+                      ""
+                    ]
+                  }
+                ]
               }
             },
             "required": [
               "action_id",
               "revision",
-              "kind",
-              "step_key"
+              "kind"
             ],
             "type": "object"
           },
           "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
             "type": "string"
           }
         },
         "required": [
-          "run_id",
-          "action"
+          "action",
+          "run_id"
         ],
         "type": "object"
       },

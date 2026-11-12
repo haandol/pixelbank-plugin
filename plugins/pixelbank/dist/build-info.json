@@ -11,8 +11,9 @@
     "proper-lockfile": "4.1.2",
     "zod": "4.6.7"
   },
-  "bundleSha256": "4f3a83c9c8d5c697ba281a0d93708ab2b81bb73dc70259e322fc2eb3f0d668f7",
-  "contractsSha256": "f44bd8738d0c2ee1884bb8f8dd1bf427b382a37413c6b9dc256dbb443250201f",
+  "bundleSha256": "16e9fbd2a2f56f9204e71cdb9b18f45881121f996a5d684fce242f572e873a4b",
+  "contractsSha256": "0b1363961abf0e86410aa4b12a043b0c9fa52a9a63d058a9df3401bf8a8a98c3",
+  "workflowOpenapiSha256": "9d4a3a5b6cee461788fc5073a6739c55ada9f7663cd72f81085c822994e113c8",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/client/dist/ajvProvider-BIwGVY6G.mjs",
     "../../node_modules/@modelcontextprotocol/client/dist/chunk-DYPzFuB5.mjs",
@@ -33,6 +34,7 @@
     "../../node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs",
     "../../node_modules/@modelcontextprotocol/server/dist/src-DdvbAHrR.mjs",
     "../../node_modules/@modelcontextprotocol/server/dist/stdio.mjs",
+    "../../node_modules/@modelcontextprotocol/server/dist/validators/ajv.mjs",
     "../../node_modules/eventsource-parser/dist/index.js",
     "../../node_modules/eventsource-parser/dist/stream.js",
     "../../node_modules/graceful-fs/clone.js",
@@ -122,6 +124,7 @@
     "src/errors.ts",
     "src/http.ts",
     "src/index.ts",
+    "src/input.ts",
     "src/oauth.ts",
     "src/privacy.ts",
     "src/remote.ts",
@@ -129,6 +132,7 @@
     "src/store.ts",
     "src/traffic.ts",
     "src/upload.ts",
+    "src/workflow.ts",
     "src/workspace.ts"
   ],
   "externals": []

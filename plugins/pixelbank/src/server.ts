@@ -8,6 +8,8 @@ import { parseUploadInput, uploadImage } from './upload.js';
 import { localTools, isInternalUploadTool, assertNoLocalOverrides } from './catalog.js';
 import { openPreparedWorkspace } from './workspace.js';
 import { openCreditsPage, recoverCreditShortage } from './credits.js';
+import { validateToolInput } from './input.js';
+import { workflowWaitTool, waitForWorkflow, WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL } from './workflow.js';
 export { validateWorkspaceURL } from './workspace.js';
 
 /** The local server bridges only the authenticated remote catalog and local connection actions. */
@@ -30,7 +32,8 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
     try { catalog = await discover(extra.mcpReq.signal); }
     catch (error) { if (!(error instanceof SafeError && error.code === 'AUTH_REQUIRED')) throw error; catalog = []; }
     assertNoLocalOverrides(catalog);
-    return { tools: secrets.clean([...localTools, ...catalog]) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
+    const wait = workflowWaitTool(catalog);
+    return { tools: secrets.clean([...localTools, ...catalog, ...(wait ? [wait] : [])]) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
   });
   server.setRequestHandler('tools/call', async (request, extra) => {
     const name = request.params.name, input = request.params.arguments ?? {};
@@ -53,9 +56,17 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
         value = await openCreditsPage(browser);
       } else {
         if (isInternalUploadTool(name)) throw new SafeError('UNKNOWN_TOOL', 'Use pixelbank_upload_image for an explicitly selected local image.');
-        if (!catalog.some(tool => tool.name === name)) catalog = await discover(extra.mcpReq.signal);
-        if (!catalog.some(tool => tool.name === name)) throw new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
-        value = await auth.callCreativeTool(name, input, options);
+        catalog = await discover(extra.mcpReq.signal);
+        if (name === WORKFLOW_WAIT_TOOL) {
+          const status = catalog.find(tool => tool.name === WORKFLOW_STATUS_TOOL);
+          if (!status) throw new SafeError('UNKNOWN_TOOL', 'Workflow status is unavailable in the current catalog.');
+          value = await waitForWorkflow(auth, status, input, options);
+        } else {
+          const tool = catalog.find(tool => tool.name === name);
+          if (!tool) throw new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
+          validateToolInput(tool, input);
+          value = await auth.callCreativeTool(name, input, options);
+        }
       }
     } catch (error) { value = await recoverCreditShortage(error, browser); }
     const clean = secrets.clean(value) as Record<string, unknown>;

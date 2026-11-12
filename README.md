@@ -108,7 +108,7 @@ The assistant can prepare your images and draft prompt before opening it. You ca
 
 *The test image loaded into PixelbankStudio's web editor. The draft instruction has not been submitted.*
 
-Opening a prepared workspace doesn't spend credits. Its link restores the initial setup; later canvas edits aren't autosaved by that link. For a longer task, ask for a food-promotion, product-background, or banner workflow to keep its inputs and selected results together.
+Opening a prepared workspace doesn't spend credits. Its link restores the initial setup; later canvas edits aren't autosaved by that link. When the connected service offers an automatic workflow, supply the required image and authorize its quoted plan. The assistant follows progress until the server saves the results in your library. Further edits start from those saved images.
 
 ## A few useful details
 
