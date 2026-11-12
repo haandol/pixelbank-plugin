@@ -36,6 +36,13 @@ optional for understanding the current decision.
     not start with NNNN-).
   - Replace the example entry below with real content when recording the first major transition. -->
 
+## 2026-11-12 — Defer automatic artifact synchronization
+
+- **Current ADR**: [Bun-based plugin installation and distribution](./0001-bun-plugin-runtime.md)
+- **Change type**: requirement rule change
+- **What**: Remove automatic export and cross-repository synchronization from this delivery while retaining live argument validation and bounded waiting.
+- **Why**: The user selected workflow release readiness first and deferred export automation to its proposal.
+
 ## 2026-11-12 — Follow live contracts and offer bounded workflow waiting
 
 - **Current ADR**: [Bun-based plugin installation and distribution](./0001-bun-plugin-runtime.md)

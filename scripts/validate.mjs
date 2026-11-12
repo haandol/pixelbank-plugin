@@ -56,7 +56,7 @@ assert.deepEqual(mcp.mcpServers.pixelbank.args, ['${PLUGIN_ROOT}/dist/index.js']
 assert.deepEqual(claudeMcp.mcpServers.pixelbank.args, ['${CLAUDE_PLUGIN_ROOT}/dist/index.js']);
 assert.equal(mcp.mcpServers.pixelbank.env.PIXELBANK_AUTH_SCOPE, 'codex');
 assert.equal(claudeMcp.mcpServers.pixelbank.env.PIXELBANK_AUTH_SCOPE, 'claude');
-for (const file of ['dist/index.js', 'contracts/tools.json', 'contracts/workflows.openapi.json', 'skills/setup/SKILL.md', 'skills/creative-workflows/SKILL.md']) {
+for (const file of ['dist/index.js', 'contracts/tools.json', 'skills/setup/SKILL.md', 'skills/creative-workflows/SKILL.md']) {
   assert((await stat(resolve(plugin, file))).isFile(), `Missing installed file: ${file}`);
 }
 assert.equal(portable.extensions['com.openai'].onboardingSkill, './skills/setup/SKILL.md');
@@ -86,7 +86,6 @@ assert.equal(info.builtWithBun, bunVersion);
 assert.deepEqual(info.dependencies, pkg.dependencies);
 assert.equal(info.bundleSha256, await hash('dist/index.js'));
 assert.equal(info.contractsSha256, await hash('contracts/tools.json'));
-assert.equal(info.workflowOpenapiSha256, await hash('contracts/workflows.openapi.json'));
 const tools = await read('plugins/pixelbank/contracts/tools.json');
 assert(tools.tools.length > 0, 'The public tool catalog must not be empty');
 assert.equal(new Set(tools.tools.map(tool => tool.name)).size, tools.tools.length);

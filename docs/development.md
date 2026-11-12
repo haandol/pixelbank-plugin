@@ -39,17 +39,7 @@ For an explicitly configured isolated server, `PIXELBANK_API_BASE_URL` accepts a
 
 The bridge refreshes authenticated `tools/list` before forwarding a remote call and validates arguments against that schema. A new API field does not require a second handwritten plugin schema. Only explicitly exposed remote tools can be called; OpenAPI never enables arbitrary endpoints.
 
-The package contains `contracts/tools.json` for the complete remote tool catalog and `contracts/workflows.openapi.json` for workflow HTTP operations. These generated files describe interfaces for offline reading and reproducible builds. The live catalog remains authoritative for availability and permissions.
-
-To consume a local directory containing exported `mcp-tools.json` and `workflows.openapi.json`:
-
-```sh
-git config --local pixelbank.apiContractSource /absolute/path/to/public-contract-exports
-bun run contracts:sync
-bun run contracts:check
-```
-
-Both files are validated before replacement. With a configured source, verification fails on drift; without it, public builds validate the bundled contracts and need no service checkout. The service's optional commit hook can update these two public files directly, preserving unrelated plugin edits. Neither route edits implementation, commits, pushes or releases the plugin.
+The package contains a manually maintained public tool snapshot for offline reading and reproducible builds. Automatic OpenAPI export and repository synchronization are deferred; live validation and workflow execution remain available independently. Maintainers update the tool snapshot explicitly alongside a compatible service change and run the existing interoperability checks.
 
 ### Bounded workflow progress
 
@@ -61,6 +51,6 @@ Keep version `0.2.3` synchronized across the root workspace, plugin package, loc
 
 Release verification tests use Git and unzip, both provided by the Dev Container and verification images.
 
-A consumer pins an exact repository commit and hashes the bundle, tool snapshot and workflow OpenAPI snapshot. Verification must point at the repository root and resolve the package below `plugins/pixelbank`; the package alone remains sufficient for an installed runtime.
+A consumer pins an exact repository commit and hashes the bundle and tool snapshot. Verification must point at the repository root and resolve the package below `plugins/pixelbank`; the package alone remains sufficient for an installed runtime.
 
 Local checks and commits do not authorize publishing. Preserve existing Git hooks and security controls. Pushes and GitHub Releases run only in the release container; follow [Container pushes and versioned releases](releases.md). `bun run check:container` verifies committed source in the Bun image and is the receipt every push requires.

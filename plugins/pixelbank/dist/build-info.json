@@ -13,7 +13,6 @@
   },
   "bundleSha256": "16e9fbd2a2f56f9204e71cdb9b18f45881121f996a5d684fce242f572e873a4b",
   "contractsSha256": "0b1363961abf0e86410aa4b12a043b0c9fa52a9a63d058a9df3401bf8a8a98c3",
-  "workflowOpenapiSha256": "9d4a3a5b6cee461788fc5073a6739c55ada9f7663cd72f81085c822994e113c8",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/client/dist/ajvProvider-BIwGVY6G.mjs",
     "../../node_modules/@modelcontextprotocol/client/dist/chunk-DYPzFuB5.mjs",

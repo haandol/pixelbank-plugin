@@ -8,7 +8,7 @@
         {
           "path": "docs/adr/distribution/0001-bun-plugin-runtime.md",
           "status": "Accepted (2026-11-12)",
-          "summary": "Retain Bun installation and verified bilingual distribution; validate live remote contracts, synchronize public snapshots and provide bounded read-only workflow waiting."
+          "summary": "Retain Bun installation and verified bilingual distribution; validate live remote contracts and provide bounded read-only workflow waiting. Automated artifact synchronization is deferred."
         }
       ]
     },

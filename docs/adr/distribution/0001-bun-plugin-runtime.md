@@ -32,12 +32,11 @@ Development and automated verification use the same recorded Bun version. Suppor
 The authenticated remote catalog is authoritative for current tool availability
 and request schemas. The bridge validates supplied arguments against that current
 contract before forwarding a call; no schema file grants a capability or a scope.
-The package's public contract snapshot is generated from the service's shared
-contracts and supports offline reading and reproducible releases. A local sync
-command may read the service's exported public artifact and update only the
-packaged public contract. It never imports private source, secrets or user data,
-and a stale configured source fails verification rather than publishing a mixed
-bundle. Live discovery remains usable when a source checkout is unavailable.
+The package's public tool-contract snapshot supports offline reading and
+reproducible releases through the existing manual maintenance process. Automatic
+OpenAPI export and cross-repository synchronization are deferred. They are not
+required to execute or validate the current workflow tools. Public builds do not
+need a private checkout, and no public artifact grants runtime authority.
 
 The bridge provides a read-only bounded workflow wait when the server advertises
 the matching status operation. The wait accepts 1–60 seconds, defaults to 30,
