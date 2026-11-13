@@ -512,6 +512,9 @@
               "quote_id": {
                 "type": "string"
               },
+              "repeat": {
+                "type": "boolean"
+              },
               "revision": {
                 "minimum": 1,
                 "type": "integer"
@@ -1457,6 +1460,9 @@
                 ],
                 "type": "object"
               },
+              "input": {
+                "type": "string"
+              },
               "revision": {
                 "minimum": 1,
                 "type": "integer"
@@ -2169,6 +2175,9 @@
               },
               "quote_id": {
                 "type": "string"
+              },
+              "repeat": {
+                "type": "boolean"
               },
               "revision": {
                 "type": "integer"
@@ -3167,6 +3176,9 @@
               "description": {
                 "type": "string"
               },
+              "input": {
+                "type": "string"
+              },
               "inspection_id": {
                 "type": "string"
               },
@@ -3195,6 +3207,9 @@
               "revision": {
                 "minimum": 1,
                 "type": "integer"
+              },
+              "source_run_id": {
+                "type": "string"
               },
               "step_key": {
                 "anyOf": [
