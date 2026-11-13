@@ -388,7 +388,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision and max_credits. The server completes all declared steps and saves library results; poll status without further writes.",
+      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision, quote_id and max_credits. One workflow charge includes up to three total attempts; tool free uses do not apply. The server completes all declared steps and saves library results; poll status without further writes.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -508,6 +508,9 @@
                   ]
                 },
                 "type": "object"
+              },
+              "quote_id": {
+                "type": "string"
               },
               "revision": {
                 "minimum": 1,
@@ -2163,6 +2166,9 @@
                   ]
                 },
                 "type": "object"
+              },
+              "quote_id": {
+                "type": "string"
               },
               "revision": {
                 "type": "integer"
