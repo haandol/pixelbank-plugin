@@ -51497,6 +51497,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     } catch (error) {
       if (!(error instanceof SafeError && error.code === "AUTH_REQUIRED"))
         throw error;
+      catalog = [];
     }
     return { tools: secrets.clean(advertisedTools(catalog)), ttlMs: 0, cacheScope: "private" };
   });

@@ -69,7 +69,8 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
   server.setRequestHandler('tools/list', async (_request, extra) => {
     catalog = [];
     try { catalog = await discover(extra.mcpReq.signal); }
-    catch (error) { if (!(error instanceof SafeError && error.code === 'AUTH_REQUIRED')) throw error; }
+    // A concurrent list may have refilled the catalog meanwhile; a sign-in refusal must still leave it empty.
+    catch (error) { if (!(error instanceof SafeError && error.code === 'AUTH_REQUIRED')) throw error; catalog = []; }
     return { tools: secrets.clean(advertisedTools(catalog)) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
   });
   server.setRequestHandler('tools/call', async (request, extra) => {
