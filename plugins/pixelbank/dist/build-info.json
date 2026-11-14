@@ -14,7 +14,7 @@
     "zod": "4.6.7"
   },
   "bundleSha256": "be105918e9553fbbc3844ff88bea7e9bd3c62a35389feb50a9f079be98252262",
-  "contractsSha256": "f1b69c929e7bd2c593ccedb02b8a8a8cde52bacd0c66ea623429d0fb901a2e42",
+  "contractsSha256": "4b01914f39f5ccab8761bcfa8312aff465248e468d8c0e3e159806aaf562174c",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/client/dist/ajvProvider-BIwGVY6G.mjs",
     "../../node_modules/@modelcontextprotocol/client/dist/chunk-DYPzFuB5.mjs",
