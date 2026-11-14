@@ -36,6 +36,13 @@ optional for understanding the current decision.
     not start with NNNN-).
   - Replace the example entry below with real content when recording the first major transition. -->
 
+## 2026-11-14 — Hide wrapped remote reads behind local tools
+
+- **Current ADR**: [Bun-based plugin installation and distribution](./0001-bun-plugin-runtime.md)
+- **Change type**: requirement rule change
+- **What**: The model-visible catalog changes from every remote tool except upload tickets and saved sources → the grouped remote tools without the workspace-read and workflow-status tools, which stay internal to the local workspace opener and bounded wait. A wait for an already finished run returns immediately, and guidance names grouped tools and actions instead of per-operation tools.
+- **Why**: The remote service grouped its operations by authority class to reduce assistant context, and the user selected one visible entry point per capability.
+
 ## 2026-11-12 — Defer automatic artifact synchronization
 
 - **Current ADR**: [Bun-based plugin installation and distribution](./0001-bun-plugin-runtime.md)
