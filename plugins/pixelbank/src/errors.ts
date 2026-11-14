@@ -1,10 +1,19 @@
+// Matches the server's rule for names it may echo: lowercase letters and underscores, at most 64.
+const identifier = (value: unknown): value is string => typeof value === 'string' && /^[a-z_]{1,64}$/.test(value);
 export class SafeError extends Error {
   readonly credit_cost?: number;
   readonly retry_same_command?: boolean;
+  readonly expected_property?: string;
+  readonly tool?: string;
+  readonly actions?: string[];
   constructor(public code: string, message: string, public retryAfterSeconds?: number, details: Record<string, unknown> = {}) {
     super(message);
     if (typeof details.credit_cost === 'number' && Number.isFinite(details.credit_cost) && details.credit_cost >= 0) this.credit_cost = details.credit_cost;
     if (typeof details.retry_same_command === 'boolean') this.retry_same_command = details.retry_same_command;
+    if (identifier(details.expected_property)) this.expected_property = details.expected_property;
+    if (identifier(details.tool) && details.tool.startsWith('pixelbank_')) this.tool = details.tool;
+    const actions = details.actions;
+    if (Array.isArray(actions) && actions.length > 0 && actions.length <= 64 && actions.every(identifier)) this.actions = [...actions];
   }
 }
 
@@ -14,11 +23,15 @@ export const storageRecovery = 'Ask the local operator to restore safe access wh
 
 export const authCancelled = () => new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.');
 
-export function safeError(error: unknown): { error: { code: string; message: string; retryAfterSeconds?: number; credit_cost?: number; retry_same_command?: boolean } } {
+export function safeError(error: unknown): { error: { code: string; message: string; retryAfterSeconds?: number; credit_cost?: number; retry_same_command?: boolean;
+  expected_property?: string; tool?: string; actions?: string[] } } {
   if (error instanceof SafeError) return { error: { code: error.code, message: error.message,
     ...(error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
     ...(error.credit_cost === undefined ? {} : { credit_cost: error.credit_cost }),
-    ...(error.retry_same_command === undefined ? {} : { retry_same_command: error.retry_same_command }) } };
+    ...(error.retry_same_command === undefined ? {} : { retry_same_command: error.retry_same_command }),
+    ...(error.expected_property === undefined ? {} : { expected_property: error.expected_property }),
+    ...(error.tool === undefined ? {} : { tool: error.tool }),
+    ...(error.actions === undefined ? {} : { actions: [...error.actions] }) } };
   return { error: { code: 'INTERNAL_ERROR', message: `The plugin could not complete the operation for an unclassified reason. Ask the local operator to inspect the plugin before retrying. ${uncertainOutcome} Preserve credential and lock files; use pixelbank_disconnect for pending cleanup when storage is usable.` } };
 }
 

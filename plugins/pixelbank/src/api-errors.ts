@@ -14,6 +14,8 @@ const messages: Record<string, string> = {
  WORKFLOW_CONFLICT: 'The workflow changed. Reload its acknowledged state before choosing the next action.',
  WORKSPACE_CONFLICT: 'This workspace preparation conflicts with an existing request or newer workflow revision.',
  WORKSPACE_UNAVAILABLE: 'The prepared workspace or one of its owned source assets is unavailable.',
+ INVALID_INPUT: 'PixelbankStudio refused this call before doing any work because its arguments did not match the tool contract. Correct the arguments and send the call again; when expected_property is present, put the selected action\'s arguments in the object with that name and add no other action\'s object.',
+ INVALID_ACTION: 'PixelbankStudio refused this call before doing any work because it did not name an available action. Correct the call and send it again with action set to one of the listed actions of the tool, and its arguments in the object with the same name.',
 };
 export function apiError(status: number, code: string, headerPause?: number, structuredPause?: unknown, details: Record<string, unknown> = {}): SafeError {
  if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code)) code = 'API_ERROR';
