@@ -7,7 +7,7 @@
         "additionalProperties": false
       },
       "authority": "read",
-      "description": "Read display information, credits and available free uses for the connected Pixelbank account.",
+      "description": "Read display information, credits, credit prices and available free uses for the connected Pixelbank account.",
       "tool": "pixelbank_read"
     },
     {
@@ -1352,6 +1352,7 @@
           },
           "operation_key": {
             "type": "string",
+            "description": "At most 128 UTF-8 bytes; reuse it unchanged on retries.",
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[^\\r\\n\\x00]+$"
@@ -1471,6 +1472,7 @@
           },
           "operation_key": {
             "type": "string",
+            "description": "At most 128 UTF-8 bytes; reuse it unchanged on retries.",
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[^\\r\\n\\x00]+$"
@@ -1684,6 +1686,7 @@
           },
           "operation_key": {
             "type": "string",
+            "description": "At most 128 UTF-8 bytes; reuse it unchanged on retries.",
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[^\\r\\n\\x00]+$"
@@ -1897,6 +1900,7 @@
           },
           "operation_key": {
             "type": "string",
+            "description": "At most 128 UTF-8 bytes; reuse it unchanged on retries.",
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[^\\r\\n\\x00]+$"
@@ -2210,7 +2214,7 @@
           "/arguments/maximum_credits"
         ]
       },
-      "description": "Generate from fully prepared images, roles, guides and masks. Prepare the Pixelbank web workspace when layers need visual composition.",
+      "description": "Generate from uploaded images: images[0] uses the generation-base upload purpose and later images generation-object; guide_image uses generation-guide and mask_image generation-mask. It returns a generation_id at once; poll pixelbank_read get_job with kind generation and that id as job_id. Prepare the Pixelbank web workspace when layers need visual composition.",
       "tool": "pixelbank_run"
     },
     {
@@ -2224,6 +2228,7 @@
           },
           "operation_key": {
             "type": "string",
+            "description": "At most 128 UTF-8 bytes; reuse it unchanged on retries.",
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[^\\r\\n\\x00]+$"
@@ -2430,6 +2435,7 @@
           },
           "operation_key": {
             "type": "string",
+            "description": "At most 128 UTF-8 bytes; reuse it unchanged on retries.",
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[^\\r\\n\\x00]+$"
@@ -2664,6 +2670,7 @@
           },
           "operation_key": {
             "type": "string",
+            "description": "At most 128 UTF-8 bytes; reuse it unchanged on retries.",
             "minLength": 1,
             "maxLength": 128,
             "pattern": "^[^\\r\\n\\x00]+$"
@@ -2904,21 +2911,25 @@
           "/arguments/request/max_credits"
         ]
       },
-      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision, quote_id and max_credits. One workflow charge includes up to three total attempts; tool free uses do not apply. The server completes all declared steps and saves library results; poll status without further writes.",
+      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision, quote_id and max_credits. One workflow charge includes up to three total attempts; tool free uses do not apply. The server completes all declared steps and saves library results; wait with pixelbank_read wait_for_workflow where offered, or poll pixelbank_get_workflow_status {run_id}, without further writes.",
       "tool": "pixelbank_run"
     }
   ],
   "availability": "Use the authenticated tools/list response for actual availability and granted authority.",
+  "local_action_reserve_bytes": {
+    "pixelbank_edit": 100,
+    "pixelbank_read": 150
+  },
   "schema_version": 1,
   "tool_budget_bytes": 1500,
   "tool_bytes": {
-    "pixelbank_delete": 770,
-    "pixelbank_edit": 1091,
+    "pixelbank_delete": 809,
+    "pixelbank_edit": 1130,
     "pixelbank_get_workflow_status": 538,
     "pixelbank_get_workspace": 455,
     "pixelbank_issue_upload": 944,
-    "pixelbank_read": 1311,
-    "pixelbank_run": 1266,
+    "pixelbank_read": 1323,
+    "pixelbank_run": 1305,
     "pixelbank_save_source": 957
   },
   "tools": [
@@ -2929,7 +2940,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Permanently delete exactly one owned image, animation or workflow run, only after the creator explicitly asked; confirmed must be true. Pass the action's arguments object as arguments. Exact schemas: pixelbank_read describe. Outline (? optional): delete_asset{asset,confirmed}; delete_animation{confirmed,id}; delete_workflow{confirmed,run_id}.",
+      "description": "Permanently delete exactly one owned image, animation or workflow run, only after the creator explicitly asked; confirmed must be true. Pass the action's arguments object as arguments. Before an unfamiliar action call pixelbank_read describe {arguments:{action}}. Outline (? optional): delete_asset{asset,confirmed}; delete_animation{confirmed,id}; delete_workflow{confirmed,run_id}.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2963,7 +2974,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Change owned library items and saved workflows without processing or charges. Pass the action's arguments object as arguments. Exact schemas: pixelbank_read describe. Outline (? optional): prepare_workspace{canvas?,layers,operation_key,prompt?,tool,workflow?}; update_asset_tags{asset,tags}; save_cutout{image}; recompose_animation{id,request{disabled_indices}}; update_animation_tags{id,request{tags}}; create_workflow{definition_key,operation_key}; update_workflow{action,run_id}; import_workflow_source{request{action_id,image,revision,step_key},run_id}.",
+      "description": "Change owned library items and saved workflows without processing or charges. Pass the action's arguments object as arguments. Before an unfamiliar action call pixelbank_read describe {arguments:{action}}. Outline (? optional): prepare_workspace{canvas?,layers,operation_key,prompt?,tool,workflow?}; update_asset_tags{asset,tags}; save_cutout{image}; recompose_animation{id,request{disabled_indices}}; update_animation_tags{id,request{tags}}; create_workflow{definition_key,operation_key}; update_workflow{action,run_id}; import_workflow_source{request{action_id,image,revision,step_key},run_id}.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3123,7 +3134,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "Read the Pixelbank account, owned images, animations, jobs, upscaling and workflow quotes, and saved workflows. Nothing is changed, charged or counted. Pass the action's arguments object as arguments. describe {action} returns an action's exact schema; call it before an unfamiliar action. Outline (? optional): get_account; list_assets{cursor?,limit?,namespace,tag?}; get_asset{filename,namespace}; quote_upscaling{factor,mode,source}; get_job{job_id,kind}; list_animations{cursor?,limit?}; get_animation{id}; list_animation_jobs; list_workflow_definitions; list_workflows{cursor?,limit?,status?}; get_workflow{run_id}; get_workflow_activity{run_id}; quote_workflow{request?,run_id}; describe{action?}.",
+      "description": "Read the Pixelbank account, owned images, animations, jobs, upscaling and workflow quotes, and saved workflows. Nothing is changed, charged or counted. Pass the action's arguments object as arguments. describe {arguments:{action}} returns an action's exact schema; call it before an unfamiliar action. Outline (? optional): get_account; list_assets{cursor?,limit?,namespace,tag?}; get_asset{filename,namespace}; quote_upscaling{factor,mode,source}; get_job{job_id,kind}; list_animations{cursor?,limit?}; get_animation{id}; list_animation_jobs; list_workflow_definitions; list_workflows{cursor?,limit?,status?}; get_workflow{run_id}; get_workflow_activity{run_id}; quote_workflow{request?,run_id}; describe{action?}.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3168,7 +3179,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Start billable processing. Keep operation_key and the approved maximum unchanged across retries of one request; it is charged at most once. Pass the action's arguments object as arguments. Exact schemas: pixelbank_read describe. Paid actions (!) also take operation_key, maximum_credits, optional paid_fallback_credits and workflow. Outline (? optional): remove_background!{request{image}}; segment!{request{image,selection}}; segment_and_save!{request{image,selection}}; generate_image!{request{options}}; generate_animation!{request{options,start_image}}; upscale_image!{request{factor,mode,quote,source}}; correct_animation_frame!{request{animation_id,correction,frame_index}}; execute_workflow{request{action_id,max_credits,revision},run_id}.",
+      "description": "Start billable processing. Keep operation_key and the approved maximum unchanged across retries of one request; it is charged at most once. Pass the action's arguments object as arguments. Before an unfamiliar action call pixelbank_read describe {arguments:{action}}. Paid actions (!) also take operation_key, maximum_credits, optional paid_fallback_credits and workflow. Outline (? optional): remove_background!{request{image}}; segment!{request{image,selection}}; segment_and_save!{request{image,selection}}; generate_image!{request{options}}; generate_animation!{request{options,start_image}}; upscale_image!{request{factor,mode,quote,source}}; correct_animation_frame!{request{animation_id,correction,frame_index}}; execute_workflow{request{action_id,max_credits,revision},run_id}.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

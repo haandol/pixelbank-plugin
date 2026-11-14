@@ -113,6 +113,14 @@ for (const tool of visible) {
   sizes[tool.name] = Buffer.byteLength(JSON.stringify(tool));
   assert(sizes[tool.name] <= budget, `${tool.name} is ${sizes[tool.name]} bytes, over the ${budget}-byte tool budget`);
 }
+// Local actions must fit the room the service keeps for them, so a service change fails its own budget first.
+const reserve = tools.local_action_reserve_bytes ?? {};
+for (const tool of visible) {
+  const remote = tools.tools.find(entry => entry.name === tool.name);
+  if (!remote) continue;
+  const added = sizes[tool.name] - Buffer.byteLength(JSON.stringify(remote));
+  assert(added <= (reserve[tool.name] ?? 0), `${tool.name} local actions add ${added} bytes, over the service's ${reserve[tool.name] ?? 0}-byte reserve`);
+}
 const described = new Set(tools.actions?.map(entry => `${entry.tool}/${entry.action}`));
 for (const tool of visible) for (const action of catalog.actionNames(tool))
   if (!catalog.localActions.some(local => local.tool === tool.name && local.action === action) && tool.name !== catalog.CONNECTION_TOOL)
