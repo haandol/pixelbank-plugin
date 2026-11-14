@@ -15,7 +15,6 @@ const messages: Record<string, string> = {
  WORKSPACE_CONFLICT: 'This workspace preparation conflicts with an existing request or newer workflow revision.',
  WORKSPACE_UNAVAILABLE: 'The prepared workspace or one of its owned source assets is unavailable.',
  INVALID_ARGUMENTS: invalidArgumentsMessage,
- INVALID_INPUT: `PixelbankStudio refused this request (INVALID_INPUT). ${uncertainOutcome}`,
  INVALID_ACTION: 'PixelbankStudio refused this call before doing any work because it did not name an available action. Correct the call and send it again with action set to one of the listed actions of the tool and its arguments in arguments.',
  TOOL_RETIRED: 'This PixelbankStudio tool name is retired and nothing was run. Call the named replacement tool and action instead.',
 };

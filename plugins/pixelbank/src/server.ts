@@ -4,8 +4,8 @@ import { CredentialStore } from './store.js';
 import { resolveBase, validateBase } from './config.js';
 import { SafeError, Secrets } from './errors.js';
 import { openBrowser } from './oauth.js';
-import { actionNames, advertisedTools, assertNoLocalOverrides, CONNECTION_ACTIONS, CONNECTION_TOOL, isInternalTool, refuseInternalTool, retiredLocalTool,
-  retiredRemoteTool, visibleRemoteTools } from './catalog.js';
+import { actionNames, advertisedTools, assertNoLocalOverrides, CONNECTION_ACTIONS, CONNECTION_TOOL, isInternalTool, refuseInternalTool, retiredConnectionTool,
+  retiredLocalTool, retiredRemoteTool, visibleRemoteTools } from './catalog.js';
 import { runLocalAction } from './local.js';
 import { openCreditsPage, recoverCreditShortage } from './credits.js';
 import { validateToolInput } from './input.js';
@@ -65,7 +65,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
           await server.notification({ method: 'notifications/tools/list_changed' }).catch(() => {});
         }
       } else {
-        const retired = retiredLocalTool(name);
+        const retired = retiredConnectionTool(name);
         if (retired) throw retired;
         if (isInternalTool(name)) throw refuseInternalTool(name);
         catalog = await discover(extra.mcpReq.signal);
@@ -73,7 +73,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
         if (local) value = local;
         else {
           const tool = visibleRemoteTools(catalog).find(tool => tool.name === name);
-          if (!tool) throw retiredRemoteTool(name, catalog, input.action) ?? new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
+          if (!tool) throw retiredLocalTool(name, catalog) ?? retiredRemoteTool(name, catalog) ?? new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
           const actions = actionNames(advertisedTools(catalog).find(entry => entry.name === name)!);
           if (actions.length && !actions.includes(input.action as string))
             throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: name, actions });

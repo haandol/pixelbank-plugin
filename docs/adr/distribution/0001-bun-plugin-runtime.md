@@ -52,15 +52,17 @@ workflow run and opening a prepared workspace join the read tool, and uploading
 one selected local image joins the edit tool. A local action appears in that
 tool's action list with its own short argument outline, keeps the tool's
 annotations, runs in the bridge and is never forwarded. A local action is added
-only while its remote tool and the internal read it needs are advertised, and a
-remote catalog that already contains a local tool or action name is rejected.
+only while its remote tool and an internal read whose contract can serve it are
+advertised. A remote catalog that already contains the connection tool, a former
+local tool name, or a local or connection action name in any of its tools is
+rejected, so describe never answers locally for a remote action.
 
 Remote actions are forwarded with their action and arguments unchanged. The
 bridge does not translate, alias or reconstruct former tool names. A former
-per-operation, never-released intermediate grouped or local tool name is refused
-locally as retired, naming its current tool, and its action when the current
-catalog provides it; any other unknown name is refused as unknown. Neither
-reaches the server. The upload-ticket, saved-source, workspace-read and
+per-operation or local tool name is refused locally as retired, naming its
+current tool, and its action only when the current catalog provides it; any
+other unknown name, including grouped names that were never released, is
+refused as unknown, as the service refuses them. Neither reaches the server. The upload-ticket, saved-source, workspace-read and
 workflow-status tools stay internal: the bridge uses them for local upload,
 workspace opening and workflow waiting, but never lists them or forwards a
 direct call to them, which is refused like a former name with its replacement
@@ -84,7 +86,9 @@ unclassified refusal, keeps the guidance that a write may already have taken
 effect and must be checked before an explicit retry.
 
 The bridge provides a read-only bounded workflow wait when the server advertises
-the matching status operation. The wait accepts 1–60 seconds, defaults to 30,
+the matching status operation with a run identifier the wait can carry. A status
+contract the wait cannot use omits only the wait; the connection tool and every
+other tool and action stay available. The wait accepts 1–60 seconds, defaults to 30,
 and uses at least 5 seconds between ordinary reads while honoring longer server
 delays and retry-after refusals. Wait cancellation or expiry leaves the accepted
 server execution running, preserves its identity and returns the latest observed
@@ -131,13 +135,13 @@ progress with the wait.
 | A connected catalog lists exactly five PixelbankStudio tools: the remote read, edit, delete and run tools and the local connection tool — approved catalog scope. | A connected catalog with all four remote tools lists those five names and no other PixelbankStudio tool. |
 | Without a connection the catalog lists only the local connection tool and makes no remote request — existing connection boundary. | A disconnected catalog lists the connection tool alone and sends nothing to the service. |
 | The connection tool's actions are connect, disconnect and open the credit page, each taking no other argument — approved local tool set. | Each action runs with the action alone; any extra argument, credential or URL is refused before any sign-in, revocation or page opening. |
-| Waiting and workspace opening appear as read-tool actions and image upload as an edit-tool action, each with its outline, only while its remote tool and internal read are advertised — approved class placement. | The read tool lists the wait whenever workflow status is available and the edit tool lists upload whenever upload tickets are available; neither appears otherwise. |
+| Waiting and workspace opening appear as read-tool actions and image upload as an edit-tool action, each with its outline, only while its remote tool and internal read are advertised — approved class placement. | The read tool lists the wait whenever a usable workflow status contract is available and the edit tool lists upload whenever upload tickets are available; neither appears otherwise, and an unusable status contract removes only the wait from an otherwise complete catalog. |
 | A local action runs in the bridge and is never forwarded as a remote action — local operation boundary. | Waiting, workspace opening and uploading send only their matching internal reads or upload requests, never a remote call naming the local action. |
-| A remote catalog cannot replace or shadow a local tool or action — trusted local control. | A catalog that already contains the connection tool or a local action name is rejected and no remote call is made. |
+| A remote catalog cannot replace or shadow a local tool or action — trusted local control. | A catalog that already contains the connection tool, a former local tool name, or a local or connection action name in any tool is rejected; no remote call is made and no describe is answered for the remote action. |
 | The upload-ticket, saved-source, workspace-read and workflow-status tools are not listed, and a direct call to one is refused locally — approved catalog scope. | Calling an internal tool by name returns a retired-tool refusal naming its replacement action, with no remote request, work or charge. |
 | A wait for a run that is already completed, failed or not running returns its latest state immediately — user requirement for hiding status. | Such a wait makes one status read, does not pause and reports why it stopped. |
 | Remote actions are forwarded with their action and arguments unchanged — remote surface owned by the service. | A remote action call reaches the server with the same tool, action and arguments. |
-| A former tool name is refused locally as retired, with its current tool and action when known, and is never an alias — approved retirement. | Calling a former local, per-operation or intermediate grouped name returns a retired-tool refusal naming the replacement and no remote request. |
+| A former tool name is refused locally as retired, with its current tool and action when known, and is never an alias — approved retirement. | Calling a former local or per-operation name returns a retired-tool refusal naming the replacement tool, and its action only while the current catalog offers it, with no remote call; a never-released grouped name is refused as unknown. |
 | Describing a local action is answered locally with its exact argument schema and authority — approved on-demand schema. | Such a describe makes no remote request and returns the same schema the bridge enforces for that action. |
 | Describing without an action lists every action of all five tools with a one-line summary — approved on-demand schema. | The listing contains the service's actions and each advertised local action, and changes nothing. |
 | An argument refusal says nothing started and keeps its location, tool and action hints, while a domain refusal keeps the possible-write guidance — approved refusal distinction. | An INVALID_ARGUMENTS refusal invites a corrected resend; an INVALID_INPUT refusal warns that a write may already have taken effect. |
@@ -165,7 +169,7 @@ Connection, upload, workspace opening, waiting and the credit page were separate
 
 Customers install Bun before enabling the plugin, and contributors use the same runtime family for development and verification. Bundled distribution keeps dependency preparation with the publisher.
 
-Hiding the workspace and workflow-status reads makes the local wait and opener the only assistant path to them; a server without the status tool offers no wait. Host approvals remembered for former tool names, including the former local controls, stop matching after the change, and hosts ask again. Approving the read tool also approves waiting and workspace opening, and approving the edit tool also approves uploading a selected file. The bridge depends on the service's describe listing and action-list shape to add local actions; a service change to them requires a coordinated bridge release.
+Hiding the workspace and workflow-status reads makes the local wait and opener the only assistant path to them; a server without a usable status tool offers no wait but keeps every other tool. Host approvals remembered for former tool names, including the former local controls, stop matching after the change, and hosts ask again. Approving the read tool also approves waiting and workspace opening, and approving the edit tool also approves uploading a selected file. The bridge depends on the service's describe listing and action-list shape to add local actions; a service change to them requires a coordinated bridge release.
 
 Maintainers must adapt runtime-specific test injection and bundling behavior while preserving the assertions and notices they protect. Bun upgrades require coordinated metadata, documentation and verification updates. Startup time and initial memory are useful observations alongside compatibility and installation friction; they are not acceptance thresholds.
 

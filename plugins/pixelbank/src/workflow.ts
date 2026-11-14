@@ -11,12 +11,17 @@ const defaultWaitSeconds = 30;
 const maximumWaitSeconds = 60;
 const minimumPollSeconds = 5;
 
+/** A status contract carries a bounded wait when it takes run_id and leaves max_wait_seconds to the bridge. */
+export function supportsBoundedWait(status: Tool): boolean {
+  const properties = status.inputSchema.properties;
+  return properties !== undefined && Object.hasOwn(properties, 'run_id') && !Object.hasOwn(properties, 'max_wait_seconds');
+}
+
 /** The wait inherits run arguments from the live status contract; it adds only a bounded local wait. */
 export function waitArgumentsSchema(status: Tool): Tool['inputSchema'] {
+  if (!supportsBoundedWait(status)) throw new SafeError('INVALID_CATALOG', 'The workflow status contract cannot be used for a bounded wait.');
   const schema = structuredClone(status.inputSchema);
-  if (!schema.properties || !Object.hasOwn(schema.properties, 'run_id') || Object.hasOwn(schema.properties, 'max_wait_seconds'))
-    throw new SafeError('INVALID_CATALOG', 'The workflow status contract cannot be used for a bounded wait.');
-  schema.properties.max_wait_seconds = { type: 'integer', minimum: 1, maximum: maximumWaitSeconds, default: defaultWaitSeconds };
+  schema.properties!.max_wait_seconds = { type: 'integer', minimum: 1, maximum: maximumWaitSeconds, default: defaultWaitSeconds };
   return schema;
 }
 

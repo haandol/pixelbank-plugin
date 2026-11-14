@@ -209,21 +209,44 @@ test('former tool names are refused locally as retired with their replacement an
   assert.equal(m.rpcCalls().length, 0);
 });
 
-test('never-released intermediate grouped names are retired to the tool of their class, with the action when it exists there', async t => {
+test('never-released intermediate grouped names are unknown, like the service reports them', async t => {
   const { m, client } = await fixture(t);
   m.rpc.tools = fullCatalog;
-  const cases: [string, Record<string, unknown>, Record<string, string>][] = [
-    ['pixelbank_process_image', { action: 'generate_image' }, { tool: 'pixelbank_run', action: 'generate_image' }],
-    ['pixelbank_generate', { action: 'not_an_action' }, { tool: 'pixelbank_run' }],
-    ['pixelbank_read_workflow', { action: 'wait_for_workflow' }, { tool: 'pixelbank_read', action: 'wait_for_workflow' }],
-    ['pixelbank_edit_workflow', {}, { tool: 'pixelbank_edit' }],
-  ];
-  for (const [name, input, replacement] of cases) {
-    const result = await client.callTool({ name, arguments: input });
+  for (const name of ['pixelbank_process_image', 'pixelbank_generate', 'pixelbank_read_workflow', 'pixelbank_edit_workflow']) {
+    const result = await client.callTool({ name, arguments: { action: 'generate_image' } });
     const error = (result.structuredContent as any).error;
-    assert.deepEqual([error.code, error.replacement], ['TOOL_RETIRED', replacement], name);
+    assert.deepEqual([error.code, error.replacement], ['UNKNOWN_TOOL', undefined], name);
   }
   assert.equal(m.rpcCalls().length, 0);
+});
+
+test('a former local tool name names its action only while the current catalog offers it', async t => {
+  const { m, client } = await fixture(t);
+  const unusableStatus = { ...statusTool, inputSchema: { type: 'object', properties: { id: { type: 'string' } }, additionalProperties: false } };
+  const cases: [string, Record<string, unknown>[], Record<string, string> | undefined][] = [
+    ['pixelbank_wait_for_workflow', fullCatalog.filter(tool => tool.name !== statusTool.name), { tool: 'pixelbank_read' }],
+    ['pixelbank_wait_for_workflow', fullCatalog.map(tool => tool.name === statusTool.name ? unusableStatus : tool), { tool: 'pixelbank_read' }],
+    ['pixelbank_upload_image', fullCatalog.filter(tool => tool.name !== 'pixelbank_issue_upload'), { tool: 'pixelbank_edit' }],
+    ['pixelbank_upload_image', fullCatalog, { tool: 'pixelbank_edit', action: 'upload_image' }],
+    ['pixelbank_upload_image', [readTool, ...compatibilityTools], undefined],
+  ];
+  for (const [name, tools, replacement] of cases) {
+    m.rpc.tools = tools;
+    const result = await client.callTool({ name, arguments: {} });
+    const error = (result.structuredContent as any).error;
+    assert.deepEqual([error.code, error.replacement], [replacement ? 'TOOL_RETIRED' : 'UNKNOWN_TOOL', replacement], `${name} ${JSON.stringify(replacement)}`);
+    if (replacement && !replacement.action) assert.match(error.message, /Call pixelbank_(read|edit) with one of its listed actions instead/);
+  }
+  assert.equal(m.rpcCalls().length, 0);
+});
+
+test('former connection names are retired without discovery, even while disconnected', async t => {
+  const { m, client } = await fixture(t, false);
+  for (const action of ['connect', 'disconnect', 'open_credits_page']) {
+    const result = await client.callTool({ name: `pixelbank_${action}`, arguments: {} });
+    assert.deepEqual((result.structuredContent as any).error.replacement, { tool: 'pixelbank_connection', action });
+  }
+  assert.equal(m.requests.length, 0);
 });
 
 const shadows: [string, Record<string, unknown>[]][] = [
@@ -231,12 +254,20 @@ const shadows: [string, Record<string, unknown>[]][] = [
   ['a former local tool name', [{ name: 'pixelbank_upload_image', inputSchema: { type: 'object' } }]],
   ['a local read action', [classTool('pixelbank_read', ['get_account', 'open_workspace'], true)]],
   ['a local edit action', [classTool('pixelbank_edit', ['upload_image'])]],
+  ['a local read action in another tool', [classTool('pixelbank_delete', ['delete_asset', 'wait_for_workflow'], false, true)]],
+  ['a local edit action in the read tool', [classTool('pixelbank_read', ['get_account', 'upload_image'], true)]],
+  ...['connect', 'disconnect', 'open_credits_page'].map(action => [`the connection action ${action}`,
+    [classTool('pixelbank_read', ['get_account', action], true)]] as [string, Record<string, unknown>[]]),
 ];
 for (const [label, tools] of shadows) test(`remote catalog cannot replace ${label}, including calls made before tools/list`, async t => {
   const { m, client } = await fixture(t);
-  m.rpc.tools = [...tools, runTool];
+  m.rpc.tools = [...tools, runTool, ...compatibilityTools];
   const result = await client.callTool({ name: 'pixelbank_run', arguments: { action: 'generate_image' } });
   assert.equal(result.isError, true); assert.equal((result.structuredContent as any).error.code, 'INVALID_CATALOG');
+  for (const action of ['wait_for_workflow', 'upload_image', 'disconnect']) {
+    const described = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'describe', arguments: { action } } });
+    assert.equal((described.structuredContent as any).error.code, 'INVALID_CATALOG', action);
+  }
   assert.equal(m.rpcCalls().length, 0);
 });
 
@@ -354,6 +385,35 @@ test('workflow waiting is a read action backed by the hidden status read and dis
   const missing = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'wait_for_workflow', arguments: { run_id: 'run' } } });
   assert.equal((missing.structuredContent as any).error.code, 'INVALID_ACTION');
   assert.equal(m.rpcCalls().length, 1);
+});
+
+test('a status contract unusable for a bounded wait omits only the wait and keeps every other tool', async t => {
+  const { m, client } = await fixture(t);
+  for (const properties of [{ id: { type: 'string' } }, { run_id: { type: 'string' }, max_wait_seconds: { type: 'integer' } }]) {
+    m.rpc.tools = fullCatalog.map(tool => tool.name === statusTool.name ? { ...statusTool, inputSchema: { type: 'object', properties } } : tool);
+    const catalog = await client.listTools();
+    assert.deepEqual(catalog.tools.map(t => t.name), ['pixelbank_connection', 'pixelbank_read', 'pixelbank_edit', 'pixelbank_delete', 'pixelbank_run']);
+    const read = catalog.tools.find(t => t.name === 'pixelbank_read')!;
+    assert.deepEqual((read.inputSchema.properties!.action as any).enum, ['get_account', 'get_job', 'describe', 'open_workspace']);
+    assert.ok(read.description!.endsWith('Local: open_workspace{workspace_id}.'));
+    const missing = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'wait_for_workflow', arguments: { run_id: 'run' } } });
+    assert.equal((missing.structuredContent as any).error.code, 'INVALID_ACTION');
+  }
+  assert.equal(m.rpcCalls().length, 0);
+});
+
+test('disconnect with any extra argument is refused before revocation and keeps the stored credentials', async t => {
+  const { m, client } = await fixture(t);
+  const before = await m.read();
+  for (const [input, location] of [[{ action: 'disconnect', access_token: 'supplied-secret' }, '/access_token'],
+    [{ action: 'disconnect', arguments: { url: 'https://attacker.invalid' } }, '/arguments/url']] as const) {
+    const denied = await client.callTool({ name: 'pixelbank_connection', arguments: input });
+    const error = (denied.structuredContent as any).error;
+    assert.deepEqual([error.code, error.action, error.location], ['INVALID_ARGUMENTS', 'disconnect', location]);
+    assert.ok(!JSON.stringify(denied).includes('supplied-secret'));
+  }
+  assert.deepEqual([m.counts.revoke, m.counts.disconnect], [0, 0]);
+  assert.deepEqual(await m.read(), before); assert.equal(before?.status, 'active');
 });
 
 for (const status of ['completed', 'failed']) test(`waiting the longest bound on an already ${status} run returns immediately after one read`, async t => {

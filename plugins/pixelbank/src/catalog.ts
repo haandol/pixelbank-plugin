@@ -2,7 +2,7 @@ import type { Auth } from './auth.js';
 import { SafeError } from './errors.js';
 import { UPLOAD_PURPOSES } from './upload.js';
 import { WORKSPACE_ID, WORKSPACE_READ_TOOL } from './workspace.js';
-import { WORKFLOW_STATUS_TOOL, waitArgumentsSchema } from './workflow.js';
+import { WORKFLOW_STATUS_TOOL, supportsBoundedWait, waitArgumentsSchema } from './workflow.js';
 
 type ToolCatalog = Awaited<ReturnType<Auth['listCreativeTools']>>;
 type Tool = ToolCatalog[number];
@@ -32,12 +32,14 @@ export interface LocalAction {
   summary: string;
   /** The internal remote tool the action needs; the action is offered only while it is advertised. */
   requires: string;
+  /** Whether the advertised internal tool's contract can serve the action; absent means any contract can. */
+  serves?(required: Tool): boolean;
   schema(catalog: ToolCatalog): Schema;
 }
 
 export const localActions: readonly LocalAction[] = [
   {
-    tool: READ_TOOL, action: 'wait_for_workflow', requires: WORKFLOW_STATUS_TOOL,
+    tool: READ_TOOL, action: 'wait_for_workflow', requires: WORKFLOW_STATUS_TOOL, serves: supportsBoundedWait,
     summary: 'Wait up to 60 seconds for an accepted workflow run with read-only status checks; a finished run returns at once.',
     schema: catalog => waitArgumentsSchema(catalog.find(tool => tool.name === WORKFLOW_STATUS_TOOL)!),
   },
@@ -75,34 +77,25 @@ export const connectionTool: Tool = {
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 };
 
-/** Former tool names whose replacement does not depend on the live catalog. */
-const retiredLocalTools = new Map<string, [string, string]>([
-  ['pixelbank_connect', [CONNECTION_TOOL, 'connect']],
-  ['pixelbank_disconnect', [CONNECTION_TOOL, 'disconnect']],
-  ['pixelbank_open_credits_page', [CONNECTION_TOOL, 'open_credits_page']],
-  ...localActions.map(local => [`pixelbank_${local.action}`, [local.tool, local.action]] as [string, [string, string]]),
-]);
+const formerName = (action: string) => `pixelbank_${action}`;
+const formerConnectionTools = new Set(CONNECTION_ACTIONS.map(formerName));
+const formerLocalTools = new Map(localActions.map(local => [formerName(local.action), local]));
 
-export function retiredLocalTool(name: string): SafeError | undefined {
-  const replacement = retiredLocalTools.get(name);
-  return replacement && retiredTool(...replacement);
+/** A former connection-control name; the connection tool and its actions never depend on the live catalog. */
+export function retiredConnectionTool(name: string): SafeError | undefined {
+  return formerConnectionTools.has(name) ? retiredTool(CONNECTION_TOOL, name.slice('pixelbank_'.length)) : undefined;
 }
 
-/** Never-released intermediate grouped names and the tool of their class, as the service retires them. */
-const retiredGroupedTools = new Map([
-  ['pixelbank_read_workflow', READ_TOOL], ['pixelbank_edit_workflow', EDIT_TOOL],
-  ['pixelbank_process_image', 'pixelbank_run'], ['pixelbank_generate', 'pixelbank_run'],
-]);
+/** A former local tool name names its action only while the current catalog offers it, else just its tool. */
+export function retiredLocalTool(name: string, catalog: ToolCatalog): SafeError | undefined {
+  const local = formerLocalTools.get(name);
+  if (!local) return undefined;
+  if (findLocalAction(local.tool, local.action, catalog)) return retiredTool(local.tool, local.action);
+  return visibleRemoteTools(catalog).some(tool => tool.name === local.tool) ? retiredTool(local.tool) : undefined;
+}
 
-/** A former per-operation or intermediate grouped name whose operations now live in a visible tool. */
-export function retiredRemoteTool(name: string, catalog: ToolCatalog, requested?: unknown): SafeError | undefined {
-  const visible = advertisedTools(catalog);
-  const grouped = retiredGroupedTools.get(name);
-  if (grouped !== undefined) {
-    const owner = visible.find(tool => tool.name === grouped);
-    if (!owner) return undefined;
-    return retiredTool(owner.name, typeof requested === 'string' && actionNames(owner).includes(requested) ? requested : undefined);
-  }
+/** A former per-operation name whose operation now lives in a visible tool. */
+export function retiredRemoteTool(name: string, catalog: ToolCatalog): SafeError | undefined {
   const action = name.slice('pixelbank_'.length);
   const owner = action === DESCRIBE_ACTION ? undefined : visibleRemoteTools(catalog).find(tool => actionNames(tool).includes(action));
   return owner && retiredTool(owner.name, action);
@@ -132,19 +125,24 @@ export function actionNames(tool: Tool): string[] {
   return Array.isArray(values) ? values.filter((value): value is string => typeof value === 'string') : [];
 }
 
-/** Local actions the current catalog can serve: their remote tool and internal read are both advertised. */
+/** Local actions the current catalog can serve: their remote tool and a usable internal read are both advertised. */
 export function availableLocalActions(catalog: ToolCatalog): LocalAction[] {
-  return localActions.filter(local => catalog.some(tool => tool.name === local.tool) && catalog.some(tool => tool.name === local.requires));
+  return localActions.filter(local => {
+    const required = catalog.find(tool => tool.name === local.requires);
+    return catalog.some(tool => tool.name === local.tool) && required !== undefined && (local.serves?.(required) ?? true);
+  });
 }
 
 export function findLocalAction(tool: string, action: unknown, catalog: ToolCatalog): LocalAction | undefined {
   return availableLocalActions(catalog).find(local => local.tool === tool && local.action === action);
 }
 
-/** A remote catalog cannot replace the connection tool or shadow a local action. */
+const bridgeActions = new Set<string>([...CONNECTION_ACTIONS, ...localActions.map(local => local.action)]);
+
+/** A remote catalog cannot replace the connection tool, a former local name, or a local or connection action in any tool. */
 export function assertNoLocalOverrides(tools: ToolCatalog): void {
-  const shadowed = tools.some(tool => tool.name === CONNECTION_TOOL || retiredLocalTools.has(tool.name) ||
-    localActions.some(local => local.tool === tool.name && actionNames(tool).includes(local.action)));
+  const shadowed = tools.some(tool => tool.name === CONNECTION_TOOL || formerConnectionTools.has(tool.name) || formerLocalTools.has(tool.name) ||
+    actionNames(tool).some(action => bridgeActions.has(action)));
   if (shadowed) throw new SafeError('INVALID_CATALOG', 'Remote tools cannot replace connection controls or local actions.');
 }
 
