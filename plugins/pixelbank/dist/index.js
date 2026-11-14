@@ -24398,7 +24398,17 @@ var DEFAULT_MAX_REQUEST_BODY_SIZE = 4 * 1024 * 1024;
 
 // src/errors.ts
 var identifier = (value) => typeof value === "string" && /^[a-z_]{1,64}$/.test(value);
-var pointer = (value) => typeof value === "string" && value.length <= 256 && /^\/$|^(\/([A-Za-z_][A-Za-z0-9_]{0,63}|[0-9]{1,6}))+$/.test(value);
+function safeLocation(value) {
+  if (typeof value !== "string" || !value.startsWith("/"))
+    return;
+  let kept = "";
+  for (const segment of value.split("/").slice(1)) {
+    if (!/^[A-Za-z0-9_.-]{1,64}$/.test(segment) || kept.length + segment.length + 1 > 256)
+      break;
+    kept += `/${segment}`;
+  }
+  return kept || (value === "/" ? "/" : undefined);
+}
 var toolName = (value) => identifier(value) && value.startsWith("pixelbank_");
 
 class SafeError extends Error {
@@ -24422,8 +24432,9 @@ class SafeError extends Error {
     const actions = details.actions;
     if (Array.isArray(actions) && actions.length > 0 && actions.length <= 64 && actions.every(identifier))
       this.hints.actions = [...actions];
-    if (pointer(details.location))
-      this.hints.location = details.location;
+    const location = safeLocation(details.location);
+    if (location)
+      this.hints.location = location;
     if (identifier(details.problem))
       this.hints.problem = details.problem;
     const replacement = details.replacement;
@@ -43351,17 +43362,58 @@ import { setTimeout as delay } from "timers/promises";
 // src/input.ts
 function validateToolInput(tool, input, context = {}) {
   let result;
+  let validator;
   try {
-    const validator = new AjvJsonSchemaValidator;
+    validator = new AjvJsonSchemaValidator;
     result = validator.getValidator(tool.inputSchema)(input);
   } catch {
     throw new SafeError("INVALID_CATALOG", "The current tool schema could not be validated. Refresh the service catalog.");
   }
-  if (!result.valid)
-    throw invalidArguments(`${context.prefix ?? ""}${firstLocation(result.errorMessage)}`, context);
+  if (result.valid)
+    return;
+  const failure = firstFailure(validator, tool.inputSchema, input) ?? { location: firstLocation(result.errorMessage) };
+  throw invalidArguments(`${context.prefix ?? ""}${failure.location}`, { ...context, problem: failure.problem ?? context.problem });
 }
 function invalidArguments(location, { tool, action, problem } = {}) {
   return new SafeError("INVALID_ARGUMENTS", invalidArgumentsMessage, undefined, { location: location || "/", tool, action, problem });
+}
+var problems = {
+  required: "required",
+  additionalProperties: "unexpected",
+  type: "type",
+  enum: "enum",
+  const: "enum",
+  pattern: "pattern",
+  minLength: "min_length",
+  maxLength: "max_length",
+  minimum: "minimum",
+  exclusiveMinimum: "minimum",
+  maximum: "maximum",
+  exclusiveMaximum: "maximum",
+  minItems: "min_items",
+  maxItems: "max_items",
+  uniqueItems: "unique_items",
+  oneOf: "one_of",
+  not: "not"
+};
+var rank = (keyword) => keyword === "required" ? 0 : keyword === "additionalProperties" ? 1 : 2;
+var escape2 = (key) => key.replaceAll("~", "~0").replaceAll("/", "~1");
+function firstFailure(validator, schema, input) {
+  try {
+    const engine = validator.ajv;
+    const validate = engine.compile(schema);
+    if (validate(input))
+      return;
+    const errors = (validate.errors ?? []).filter((error) => error.keyword !== "if");
+    const error = [...errors].sort((left, right) => rank(left.keyword) - rank(right.keyword))[0];
+    if (!error)
+      return;
+    const property = error.params.missingProperty ?? error.params.additionalProperty;
+    const location = `${error.instancePath}${typeof property === "string" ? `/${escape2(property)}` : ""}`;
+    return { location, problem: problems[error.keyword] ?? "invalid" };
+  } catch {
+    return;
+  }
 }
 function firstLocation(message = "") {
   return /^data(\/\S*?)?(?=[\s,]|$)/.exec(message)?.[1] ?? "";
@@ -43450,10 +43502,10 @@ var ARGUMENTS_FIELD = "arguments";
 var UPLOAD_TICKET_TOOL = "pixelbank_issue_upload";
 var CONNECTION_ACTIONS = ["connect", "disconnect", "open_credits_page"];
 var internalTools = new Map([
-  [UPLOAD_TICKET_TOOL, `${EDIT_TOOL} action upload_image`],
-  ["pixelbank_save_source", `${EDIT_TOOL} action upload_image`],
-  [WORKSPACE_READ_TOOL, `${READ_TOOL} action open_workspace`],
-  [WORKFLOW_STATUS_TOOL, `${READ_TOOL} action wait_for_workflow`]
+  [UPLOAD_TICKET_TOOL, [EDIT_TOOL, "upload_image"]],
+  ["pixelbank_save_source", [EDIT_TOOL, "upload_image"]],
+  [WORKSPACE_READ_TOOL, [READ_TOOL, "open_workspace"]],
+  [WORKFLOW_STATUS_TOOL, [READ_TOOL, "wait_for_workflow"]]
 ]);
 var internalToolNames = [...internalTools.keys()];
 var localActions = [
@@ -43489,7 +43541,9 @@ var localActions = [
         save_source: { type: "boolean" }
       },
       required: ["file_path", "purpose"],
-      additionalProperties: false
+      additionalProperties: false,
+      if: { properties: { save_source: { const: true } }, required: ["save_source"] },
+      then: { properties: { purpose: { const: "workflow-input" } } }
     })
   }
 ];
@@ -43519,19 +43573,34 @@ function retiredLocalTool(name) {
   const replacement = retiredLocalTools.get(name);
   return replacement && retiredTool(...replacement);
 }
-function retiredRemoteTool(name, catalog) {
+var retiredGroupedTools = new Map([
+  ["pixelbank_read_workflow", READ_TOOL],
+  ["pixelbank_edit_workflow", EDIT_TOOL],
+  ["pixelbank_process_image", "pixelbank_run"],
+  ["pixelbank_generate", "pixelbank_run"]
+]);
+function retiredRemoteTool(name, catalog, requested) {
+  const visible = advertisedTools(catalog);
+  const grouped = retiredGroupedTools.get(name);
+  if (grouped !== undefined) {
+    const owner = visible.find((tool) => tool.name === grouped);
+    if (!owner)
+      return;
+    return retiredTool(owner.name, typeof requested === "string" && actionNames(owner).includes(requested) ? requested : undefined);
+  }
   const action = name.slice("pixelbank_".length);
   const owner = action === DESCRIBE_ACTION ? undefined : visibleRemoteTools(catalog).find((tool) => actionNames(tool).includes(action));
   return owner && retiredTool(owner.name, action);
 }
 function retiredTool(tool, action) {
-  return new SafeError("TOOL_RETIRED", `This PixelbankStudio tool name is retired and nothing was run. Call ${tool} with action ${action} instead.`, undefined, { replacement: { tool, action } });
+  const target = action === undefined ? `${tool} with one of its listed actions` : `${tool} with action ${action}`;
+  return new SafeError("TOOL_RETIRED", `This PixelbankStudio tool name is retired and nothing was run. Call ${target} instead.`, undefined, { replacement: { tool, ...action === undefined ? {} : { action } } });
 }
 function isInternalTool(name) {
   return internalTools.has(name);
 }
 function refuseInternalTool(name) {
-  return new SafeError("UNKNOWN_TOOL", `This PixelbankStudio tool is used internally. Use ${internalTools.get(name)} instead.`);
+  return retiredTool(...internalTools.get(name));
 }
 function visibleRemoteTools(tools) {
   return tools.filter((tool) => !isInternalTool(tool.name));
@@ -43631,6 +43700,8 @@ async function describe2({ auth, catalog }, input, options) {
   const read = catalog.find((tool) => tool.name === READ_TOOL);
   validateToolInput(read, input, { tool: READ_TOOL, action: DESCRIBE_ACTION });
   const value = await auth.callCreativeTool(READ_TOOL, input, options);
+  if (target === DESCRIBE_ACTION)
+    return withOwnedTargets(value, owned);
   if (target !== undefined)
     return value;
   const data = value.data;
@@ -43638,13 +43709,36 @@ async function describe2({ auth, catalog }, input, options) {
     throw new SafeError("INVALID_RESPONSE", "The action listing did not match its contract. Nothing was changed.");
   return { ...value, data: { ...data, actions: [...data.actions, ...owned.map(({ tool, action, authority, summary }) => ({ tool, action, authority, summary }))] } };
 }
+function withOwnedTargets(value, owned) {
+  const data = value.data;
+  const targets = data?.arguments_schema?.properties?.action;
+  if (!targets || !Array.isArray(targets.enum))
+    return value;
+  const copy = structuredClone(value);
+  const action = copy.data.arguments_schema.properties.action;
+  action.enum = [...targets.enum, ...owned.map((entry) => entry.action).filter((name) => !targets.enum.includes(name))];
+  return copy;
+}
 function describedAction(input) {
   const args = input[ARGUMENTS_FIELD];
   return args && typeof args === "object" ? args.action : undefined;
 }
 
 // src/server.ts
-var isEmptyObject = (value) => !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0;
+function refuseConnectionArguments(input) {
+  const refuse = (location, problem) => new SafeError("INVALID_ARGUMENTS", `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(", ")}) and accepts no credentials, URLs, payment information or other arguments.`, undefined, { tool: CONNECTION_TOOL, action: input.action, location, problem });
+  const extra = Object.keys(input).sort().find((key) => key !== "action" && key !== "arguments");
+  if (extra !== undefined)
+    throw refuse(`/${extra}`, "unexpected");
+  const args = input.arguments;
+  if (args === undefined)
+    return;
+  if (!args || typeof args !== "object" || Array.isArray(args))
+    throw refuse("/arguments", "type");
+  const nested = Object.keys(args).sort()[0];
+  if (nested !== undefined)
+    throw refuse(`/arguments/${nested}`, "unexpected");
+}
 function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone", dependencies = {}) {
   const base = dependencies.auth ? validateBase(dependencies.auth.base) : resolveBase();
   const secrets = dependencies.auth?.secrets ?? new Secrets;
@@ -43684,9 +43778,9 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     let value;
     try {
       if (name === CONNECTION_TOOL) {
-        const extra = Object.keys(input).some((key) => key !== "action" && !(key === "arguments" && isEmptyObject(input.arguments)));
-        if (extra || !CONNECTION_ACTIONS.includes(input.action))
-          throw new SafeError("INVALID_ARGUMENTS", `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(", ")}) and accepts no credentials, URLs, payment information or other arguments.`, undefined, { tool: CONNECTION_TOOL, location: extra ? "/" : "/action" });
+        if (!CONNECTION_ACTIONS.includes(input.action))
+          throw apiError(400, "INVALID_ACTION", undefined, undefined, { tool: CONNECTION_TOOL, actions: [...CONNECTION_ACTIONS] });
+        refuseConnectionArguments(input);
         if (input.action === "open_credits_page")
           value = await openCreditsPage(browser);
         else {
@@ -43706,7 +43800,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
         else {
           const tool = visibleRemoteTools(catalog).find((tool) => tool.name === name);
           if (!tool)
-            throw retiredRemoteTool(name, catalog) ?? new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated PixelbankStudio catalog.");
+            throw retiredRemoteTool(name, catalog, input.action) ?? new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated PixelbankStudio catalog.");
           const actions = actionNames(advertisedTools(catalog).find((entry) => entry.name === name));
           if (actions.length && !actions.includes(input.action))
             throw apiError(400, "INVALID_ACTION", undefined, undefined, { tool: name, actions });

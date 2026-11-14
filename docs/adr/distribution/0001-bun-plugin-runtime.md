@@ -57,12 +57,14 @@ remote catalog that already contains a local tool or action name is rejected.
 
 Remote actions are forwarded with their action and arguments unchanged. The
 bridge does not translate, alias or reconstruct former tool names. A former
-per-operation or local tool name is refused locally as retired, naming its
-current tool and action when the current catalog provides it; any other unknown
-name is refused as unknown. Neither reaches the server. The upload-ticket,
-saved-source, workspace-read and workflow-status tools stay internal: the bridge
-uses them for local upload, workspace opening and workflow waiting, but never
-lists them or forwards a direct call to them.
+per-operation, never-released intermediate grouped or local tool name is refused
+locally as retired, naming its current tool, and its action when the current
+catalog provides it; any other unknown name is refused as unknown. Neither
+reaches the server. The upload-ticket, saved-source, workspace-read and
+workflow-status tools stay internal: the bridge uses them for local upload,
+workspace opening and workflow waiting, but never lists them or forwards a
+direct call to them, which is refused like a former name with its replacement
+action.
 
 The read tool's describe operation is answered by the bridge for a local action:
 it returns that action's exact argument schema, required fields and authority
@@ -70,7 +72,8 @@ without a remote request. Describing a remote action is forwarded unchanged.
 Describing without an action forwards the request and adds a one-line summary of
 each advertised local action and connection action to the server's list, so one
 listing covers every action of all five tools. Describing a connection action is
-also answered locally.
+also answered locally, and describing describe itself adds these actions to the
+list of actions it accepts.
 
 An argument refusal states that nothing started and that the corrected call can
 be sent again. The service reports such refusals as INVALID_ARGUMENTS with the
@@ -131,10 +134,10 @@ progress with the wait.
 | Waiting and workspace opening appear as read-tool actions and image upload as an edit-tool action, each with its outline, only while its remote tool and internal read are advertised — approved class placement. | The read tool lists the wait whenever workflow status is available and the edit tool lists upload whenever upload tickets are available; neither appears otherwise. |
 | A local action runs in the bridge and is never forwarded as a remote action — local operation boundary. | Waiting, workspace opening and uploading send only their matching internal reads or upload requests, never a remote call naming the local action. |
 | A remote catalog cannot replace or shadow a local tool or action — trusted local control. | A catalog that already contains the connection tool or a local action name is rejected and no remote call is made. |
-| The upload-ticket, saved-source, workspace-read and workflow-status tools are not listed, and a direct call to one is refused locally — approved catalog scope. | Calling an internal tool by name returns an unknown-tool refusal with no remote request, work or charge. |
+| The upload-ticket, saved-source, workspace-read and workflow-status tools are not listed, and a direct call to one is refused locally — approved catalog scope. | Calling an internal tool by name returns a retired-tool refusal naming its replacement action, with no remote request, work or charge. |
 | A wait for a run that is already completed, failed or not running returns its latest state immediately — user requirement for hiding status. | Such a wait makes one status read, does not pause and reports why it stopped. |
 | Remote actions are forwarded with their action and arguments unchanged — remote surface owned by the service. | A remote action call reaches the server with the same tool, action and arguments. |
-| A former tool name is refused locally as retired, with its current tool and action when known, and is never an alias — approved retirement. | Calling a former local or per-operation name returns a retired-tool refusal naming the replacement and no remote request. |
+| A former tool name is refused locally as retired, with its current tool and action when known, and is never an alias — approved retirement. | Calling a former local, per-operation or intermediate grouped name returns a retired-tool refusal naming the replacement and no remote request. |
 | Describing a local action is answered locally with its exact argument schema and authority — approved on-demand schema. | Such a describe makes no remote request and returns the same schema the bridge enforces for that action. |
 | Describing without an action lists every action of all five tools with a one-line summary — approved on-demand schema. | The listing contains the service's actions and each advertised local action, and changes nothing. |
 | An argument refusal says nothing started and keeps its location, tool and action hints, while a domain refusal keeps the possible-write guidance — approved refusal distinction. | An INVALID_ARGUMENTS refusal invites a corrected resend; an INVALID_INPUT refusal warns that a write may already have taken effect. |

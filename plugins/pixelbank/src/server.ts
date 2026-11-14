@@ -12,7 +12,18 @@ import { validateToolInput } from './input.js';
 import { apiError } from './api-errors.js';
 export { validateWorkspaceURL } from './workspace.js';
 
-const isEmptyObject = (value: unknown) => !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0;
+/** Connection actions take no arguments; an empty arguments object is accepted like any argument-free action. */
+function refuseConnectionArguments(input: Record<string, unknown>): void {
+  const refuse = (location: string, problem: string) => new SafeError('INVALID_ARGUMENTS', `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(', ')}) and accepts no credentials, URLs, payment information or other arguments.`,
+    undefined, { tool: CONNECTION_TOOL, action: input.action, location, problem });
+  const extra = Object.keys(input).sort().find(key => key !== 'action' && key !== 'arguments');
+  if (extra !== undefined) throw refuse(`/${extra}`, 'unexpected');
+  const args = input.arguments;
+  if (args === undefined) return;
+  if (!args || typeof args !== 'object' || Array.isArray(args)) throw refuse('/arguments', 'type');
+  const nested = Object.keys(args).sort()[0];
+  if (nested !== undefined) throw refuse(`/arguments/${nested}`, 'unexpected');
+}
 
 /** The local server bridges only the authenticated remote catalog and local connection actions. */
 export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'standalone', dependencies: { auth?: Auth; browser?: typeof openBrowser } = {}) {
@@ -45,11 +56,9 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
     let value: Record<string, unknown>;
     try {
       if (name === CONNECTION_TOOL) {
-        // An empty arguments object is accepted like any argument-free action; nothing else is.
-        const extra = Object.keys(input).some(key => key !== 'action' && !(key === 'arguments' && isEmptyObject(input.arguments)));
-        if (extra || !CONNECTION_ACTIONS.includes(input.action as never))
-          throw new SafeError('INVALID_ARGUMENTS', `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(', ')}) and accepts no credentials, URLs, payment information or other arguments.`,
-            undefined, { tool: CONNECTION_TOOL, location: extra ? '/' : '/action' });
+        if (!CONNECTION_ACTIONS.includes(input.action as never))
+          throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: CONNECTION_TOOL, actions: [...CONNECTION_ACTIONS] });
+        refuseConnectionArguments(input);
         if (input.action === 'open_credits_page') value = await openCreditsPage(browser);
         else {
           value = input.action === 'connect' ? await auth.connect() : await auth.disconnect();
@@ -64,7 +73,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
         if (local) value = local;
         else {
           const tool = visibleRemoteTools(catalog).find(tool => tool.name === name);
-          if (!tool) throw retiredRemoteTool(name, catalog) ?? new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
+          if (!tool) throw retiredRemoteTool(name, catalog, input.action) ?? new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
           const actions = actionNames(advertisedTools(catalog).find(entry => entry.name === name)!);
           if (actions.length && !actions.includes(input.action as string))
             throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: name, actions });

@@ -13,12 +13,12 @@ const state = (status = 'running', revision = 1) => ({ data: { run_id: 'run', st
 
 test('live schema validation rejects wrong types and unknown fields without coercing input', () => {
   const input = { run_id: 4 };
-  assert.throws(() => validateToolInput(tool, input), { code: 'INVALID_ARGUMENTS', hints: { location: '/run_id' } });
+  assert.throws(() => validateToolInput(tool, input), { code: 'INVALID_ARGUMENTS', hints: { location: '/run_id', problem: 'type' } });
   assert.deepEqual(input, { run_id: 4 });
-  assert.throws(() => validateToolInput(tool, { run_id: 'run', owner: 'another' }), { code: 'INVALID_ARGUMENTS', hints: { location: '/' } });
+  assert.throws(() => validateToolInput(tool, { run_id: 'run', owner: 'another' }), { code: 'INVALID_ARGUMENTS', hints: { location: '/owner', problem: 'unexpected' } });
   const changed = { ...tool, inputSchema: { ...tool.inputSchema, required: ['run_id', 'revision'],
     properties: { ...tool.inputSchema.properties, revision: { type: 'integer', minimum: 1 } } } };
-  assert.throws(() => validateToolInput(changed, { run_id: 'run' }), { code: 'INVALID_ARGUMENTS' });
+  assert.throws(() => validateToolInput(changed, { run_id: 'run' }), { code: 'INVALID_ARGUMENTS', hints: { location: '/revision', problem: 'required' } });
   validateToolInput(changed, { run_id: 'run', revision: 2 });
 });
 
@@ -94,6 +94,6 @@ test('wait cancellation and invalid status never change the accepted workflow', 
   await assert.rejects(waitForWorkflow({ callCreativeTool: async () => ({ data: { ...state().data, run_id: 'foreign' } }) }, tool,
     { run_id: 'run' }), { code: 'INVALID_RESPONSE' });
   assert.throws(() => validateToolInput({ name: tool.name, inputSchema: waitArgumentsSchema(tool) }, { run_id: 'run', max_wait_seconds: 0 }),
-    { code: 'INVALID_ARGUMENTS', hints: { location: '/max_wait_seconds' } });
+    { code: 'INVALID_ARGUMENTS', hints: { location: '/max_wait_seconds', problem: 'minimum' } });
   assert.throws(() => waitArgumentsSchema({ name: tool.name, inputSchema: { type: 'object', properties: { id: { type: 'string' } } } }), { code: 'INVALID_CATALOG' });
 });

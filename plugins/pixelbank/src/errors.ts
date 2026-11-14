@@ -1,8 +1,15 @@
 // Matches the server's rule for names it may echo: lowercase letters and underscores, at most 64.
 const identifier = (value: unknown): value is string => typeof value === 'string' && /^[a-z_]{1,64}$/.test(value);
-// A JSON location of identifier-like segments or array indexes, never a supplied value.
-const pointer = (value: unknown): value is string => typeof value === 'string' && value.length <= 256 &&
-  /^\/$|^(\/([A-Za-z_][A-Za-z0-9_]{0,63}|[0-9]{1,6}))+$/.test(value);
+/** Keeps a JSON location up to its first segment that is not a plain name or index, as the service does. */
+export function safeLocation(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.startsWith('/')) return undefined;
+  let kept = '';
+  for (const segment of value.split('/').slice(1)) {
+    if (!/^[A-Za-z0-9_.-]{1,64}$/.test(segment) || kept.length + segment.length + 1 > 256) break;
+    kept += `/${segment}`;
+  }
+  return kept || (value === '/' ? '/' : undefined);
+}
 const toolName = (value: unknown): value is string => identifier(value) && value.startsWith('pixelbank_');
 type Hints = { tool?: string; action?: string; actions?: string[]; location?: string; problem?: string; replacement?: { tool: string; action?: string } };
 
@@ -19,7 +26,8 @@ export class SafeError extends Error {
     if (identifier(details.action)) this.hints.action = details.action;
     const actions = details.actions;
     if (Array.isArray(actions) && actions.length > 0 && actions.length <= 64 && actions.every(identifier)) this.hints.actions = [...actions];
-    if (pointer(details.location)) this.hints.location = details.location;
+    const location = safeLocation(details.location);
+    if (location) this.hints.location = location;
     if (identifier(details.problem)) this.hints.problem = details.problem;
     const replacement = details.replacement as Record<string, unknown> | undefined;
     if (replacement && typeof replacement === 'object' && toolName(replacement.tool))

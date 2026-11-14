@@ -70,10 +70,22 @@ async function describe({ auth, catalog }: LocalDependencies, input: Record<stri
   const read = catalog.find(tool => tool.name === READ_TOOL)!;
   validateToolInput(read, input, { tool: READ_TOOL, action: DESCRIBE_ACTION });
   const value = await auth.callCreativeTool(READ_TOOL, input, options);
+  if (target === DESCRIBE_ACTION) return withOwnedTargets(value, owned);
   if (target !== undefined) return value;
   const data = value.data as { actions?: unknown } | undefined;
   if (!data || !Array.isArray(data.actions)) throw new SafeError('INVALID_RESPONSE', 'The action listing did not match its contract. Nothing was changed.');
   return { ...value, data: { ...data, actions: [...data.actions, ...owned.map(({ tool, action, authority, summary }) => ({ tool, action, authority, summary }))] } };
+}
+
+/** describe's own exact schema also accepts the actions the bridge describes itself. */
+function withOwnedTargets(value: Record<string, unknown>, owned: Described[]): Record<string, unknown> {
+  const data = value.data as { arguments_schema?: { properties?: { action?: { enum?: unknown } } } } | undefined;
+  const targets = data?.arguments_schema?.properties?.action;
+  if (!targets || !Array.isArray(targets.enum)) return value;
+  const copy = structuredClone(value);
+  const action = (copy.data as typeof data)!.arguments_schema!.properties!.action!;
+  action.enum = [...targets.enum, ...owned.map(entry => entry.action).filter(name => !(targets.enum as unknown[]).includes(name))];
+  return copy;
 }
 
 function describedAction(input: Record<string, unknown>): unknown {

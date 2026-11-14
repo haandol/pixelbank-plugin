@@ -47,7 +47,7 @@ GitHub 의존성 그래프는 `bun.lock`을 읽지 않고 Dependabot은 Bun에 �
 
 브리지는 `pixelbank_connection`(`connect`, `disconnect`, `open_credits_page`)을 추가하고 로컬 action을 같은 등급의 원격 도구에 넣습니다. `wait_for_workflow`와 `open_workspace`는 `pixelbank_read`에, `upload_image`는 `pixelbank_edit`에 들어갑니다. 원격 도구와 필요한 내부 조회가 모두 제공될 때만 action 목록에 이름을, 설명에 `name{fields}` 개요를 덧붙입니다. 연결 도구, 예전 로컬 도구 이름이나 로컬 action 이름을 이미 포함한 원격 목록은 `INVALID_CATALOG`로 거부합니다. 로컬 action과 연결 action의 `describe`는 브리지가 직접 답하고, 서버의 전체 목록에는 이 action들을 덧붙입니다.
 
-`pixelbank_issue_upload`, `pixelbank_save_source`, `pixelbank_get_workspace`, `pixelbank_get_workflow_status`는 설치된 브리지를 위해 원격 목록에 그대로 남지만 모델에게는 노출하지 않습니다. 로컬 action이 정확한 이름으로 호출하며, 직접 호출하면 로컬에서 거부하고 대신 쓸 action을 알려 줍니다. 예전 도구 이름은 브리지가 알 수 있으면 `replacement` 도구와 action을 담아 `TOOL_RETIRED`로, 그 밖의 알 수 없는 이름은 `UNKNOWN_TOOL`로 로컬에서 거부합니다.
+`pixelbank_issue_upload`, `pixelbank_save_source`, `pixelbank_get_workspace`, `pixelbank_get_workflow_status`는 설치된 브리지를 위해 원격 목록에 그대로 남지만 모델에게는 노출하지 않습니다. 로컬 action이 정확한 이름으로 호출하며, 직접 호출하면 대신 쓸 도구와 action을 담아 `TOOL_RETIRED`로 로컬에서 거부합니다. 예전 작업별 이름, 중간 묶음 이름과 로컬 도구 이름은 `replacement` 도구와, 브리지가 알 수 있으면 action을 담아 `TOOL_RETIRED`로, 그 밖의 알 수 없는 이름은 `UNKNOWN_TOOL`로 로컬에서 거부합니다. 인수 거부는 실패한 속성 자체를 `location`으로, 서비스의 제약 이름을 `problem`으로 알려 줍니다.
 
 작업 전에 일어난 거부인 `INVALID_ARGUMENTS`(`location`, `problem`, `tool`, `action` 힌트 포함)와 `INVALID_ACTION`(도구의 `actions` 포함)은 고쳐서 다시 보내도록 안내합니다. 브리지의 사전 거부도 같은 코드를 사용합니다. 도메인 규칙의 `INVALID_INPUT`과 분류되지 않은 거부는 서비스가 요청 일부를 이미 저장했을 수 있으므로 쓰기 가능성 안내를 유지합니다.
 

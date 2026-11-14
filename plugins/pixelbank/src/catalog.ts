@@ -16,12 +16,12 @@ export const ARGUMENTS_FIELD = 'arguments';
 export const UPLOAD_TICKET_TOOL = 'pixelbank_issue_upload';
 export const CONNECTION_ACTIONS = ['connect', 'disconnect', 'open_credits_page'] as const;
 
-/** Remote tools used only by local actions, mapped to the model-visible replacement. */
-const internalTools = new Map([
-  [UPLOAD_TICKET_TOOL, `${EDIT_TOOL} action upload_image`],
-  ['pixelbank_save_source', `${EDIT_TOOL} action upload_image`],
-  [WORKSPACE_READ_TOOL, `${READ_TOOL} action open_workspace`],
-  [WORKFLOW_STATUS_TOOL, `${READ_TOOL} action wait_for_workflow`],
+/** Remote tools used only by local actions, mapped to the model-visible replacement tool and action. */
+const internalTools = new Map<string, [string, string]>([
+  [UPLOAD_TICKET_TOOL, [EDIT_TOOL, 'upload_image']],
+  ['pixelbank_save_source', [EDIT_TOOL, 'upload_image']],
+  [WORKSPACE_READ_TOOL, [READ_TOOL, 'open_workspace']],
+  [WORKFLOW_STATUS_TOOL, [READ_TOOL, 'wait_for_workflow']],
 ]);
 export const internalToolNames: readonly string[] = [...internalTools.keys()];
 
@@ -52,7 +52,10 @@ export const localActions: readonly LocalAction[] = [
     summary: 'Upload one explicitly selected local PNG, JPEG or WebP image; workflow-input with save_source=true keeps a persistent source.',
     schema: () => ({ type: 'object', properties: { file_path: { type: 'string', minLength: 1 },
       purpose: { type: 'string', enum: [...UPLOAD_PURPOSES] }, save_source: { type: 'boolean' } },
-      required: ['file_path', 'purpose'], additionalProperties: false }),
+      required: ['file_path', 'purpose'], additionalProperties: false,
+      // A persistent source must be a workflow input, so the exact schema refuses any other purpose.
+      if: { properties: { save_source: { const: true } }, required: ['save_source'] },
+      then: { properties: { purpose: { const: 'workflow-input' } } } }),
   },
 ];
 
@@ -85,24 +88,39 @@ export function retiredLocalTool(name: string): SafeError | undefined {
   return replacement && retiredTool(...replacement);
 }
 
-/** A former per-operation name whose action now lives in a visible remote tool. */
-export function retiredRemoteTool(name: string, catalog: ToolCatalog): SafeError | undefined {
+/** Never-released intermediate grouped names and the tool of their class, as the service retires them. */
+const retiredGroupedTools = new Map([
+  ['pixelbank_read_workflow', READ_TOOL], ['pixelbank_edit_workflow', EDIT_TOOL],
+  ['pixelbank_process_image', 'pixelbank_run'], ['pixelbank_generate', 'pixelbank_run'],
+]);
+
+/** A former per-operation or intermediate grouped name whose operations now live in a visible tool. */
+export function retiredRemoteTool(name: string, catalog: ToolCatalog, requested?: unknown): SafeError | undefined {
+  const visible = advertisedTools(catalog);
+  const grouped = retiredGroupedTools.get(name);
+  if (grouped !== undefined) {
+    const owner = visible.find(tool => tool.name === grouped);
+    if (!owner) return undefined;
+    return retiredTool(owner.name, typeof requested === 'string' && actionNames(owner).includes(requested) ? requested : undefined);
+  }
   const action = name.slice('pixelbank_'.length);
   const owner = action === DESCRIBE_ACTION ? undefined : visibleRemoteTools(catalog).find(tool => actionNames(tool).includes(action));
   return owner && retiredTool(owner.name, action);
 }
 
-function retiredTool(tool: string, action: string): SafeError {
-  return new SafeError('TOOL_RETIRED', `This PixelbankStudio tool name is retired and nothing was run. Call ${tool} with action ${action} instead.`,
-    undefined, { replacement: { tool, action } });
+function retiredTool(tool: string, action?: string): SafeError {
+  const target = action === undefined ? `${tool} with one of its listed actions` : `${tool} with action ${action}`;
+  return new SafeError('TOOL_RETIRED', `This PixelbankStudio tool name is retired and nothing was run. Call ${target} instead.`,
+    undefined, { replacement: { tool, ...(action === undefined ? {} : { action }) } });
 }
 
 export function isInternalTool(name: string): boolean {
   return internalTools.has(name);
 }
 
+/** A hidden compatibility tool is refused like a former name, with its model-visible replacement. */
 export function refuseInternalTool(name: string): SafeError {
-  return new SafeError('UNKNOWN_TOOL', `This PixelbankStudio tool is used internally. Use ${internalTools.get(name)} instead.`);
+  return retiredTool(...internalTools.get(name)!);
 }
 
 export function visibleRemoteTools(tools: ToolCatalog): ToolCatalog {
