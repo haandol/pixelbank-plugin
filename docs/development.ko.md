@@ -41,15 +41,19 @@ GitHub 의존성 그래프는 `bun.lock`을 읽지 않고 Dependabot은 Bun에 �
 
 패키지는 오프라인 조회와 재현 가능한 빌드를 위한 공개 도구 스냅샷을 수동으로 관리합니다. OpenAPI 자동 내보내기와 저장소 간 동기화는 별도 작업으로 미룹니다. 실시간 입력 검증과 워크플로 실행은 이 자동화 없이 사용할 수 있습니다. 유지보수자는 서비스 변경에 맞춰 도구 스냅샷을 명시적으로 갱신하고 기존 상호 운용 검사를 실행합니다.
 
-### 묶음 원격 도구와 내부 조회
+### 다섯 도구, 로컬 action과 내부 조회
 
-서버는 작업을 권한 등급별 도구로 묶습니다. 조회, 일반 편집, 삭제와 과금되는 처리는 한 도구에 섞이지 않습니다. 묶음 도구는 최상위의 필수 `action`과, action과 같은 이름의 객체에 담긴 해당 작업의 인수를 받습니다. 과금 도구는 `operation_key`, `maximum_credits`와 선택적인 유료 대체·워크플로 정보를 최상위에 둡니다. 브리지는 이 도구들의 스키마와 주석을 그대로 전달하고 예전 작업별 이름의 별칭을 두지 않으므로, 폐기된 이름은 로컬에서 `UNKNOWN_TOOL`로 거부됩니다.
+서버는 작업을 권한 등급별 네 도구로 묶습니다. 조회, 일반 편집, 삭제와 과금되는 처리는 한 도구에 섞이지 않습니다. 도구 호출은 필수 `action`과 해당 작업의 인수를 담은 `arguments` 객체 하나를 받으며, 과금 action은 `operation_key`, `maximum_credits`와 선택적인 유료 대체·워크플로 정보를 그 안에 둡니다. 노출되는 도구는 action 목록과 설명 속 짧은 개요만 가지며, 읽기 action `describe`가 작업의 정확한 스키마, 동의 항목과 권한을 반환하고 인수 없이 호출하면 모든 action을 나열합니다.
 
-`pixelbank_issue_upload`, `pixelbank_save_source`, `pixelbank_get_workspace`, `pixelbank_get_workflow_status`는 로컬 도우미가 사용하도록 원격 목록에 남지만 모델에게는 노출하지 않습니다. `pixelbank_upload_image`, `pixelbank_open_workspace`, `pixelbank_wait_for_workflow`가 정확한 이름으로 호출하며, 직접 호출하면 로컬에서 거부하고 대신 쓸 로컬 도구를 알려 줍니다.
+브리지는 `pixelbank_connection`(`connect`, `disconnect`, `open_credits_page`)을 추가하고 로컬 action을 같은 등급의 원격 도구에 넣습니다. `wait_for_workflow`와 `open_workspace`는 `pixelbank_read`에, `upload_image`는 `pixelbank_edit`에 들어갑니다. 원격 도구와 필요한 내부 조회가 모두 제공될 때만 action 목록에 이름을, 설명에 `name{fields}` 개요를 덧붙입니다. 연결 도구, 예전 로컬 도구 이름이나 로컬 action 이름을 이미 포함한 원격 목록은 `INVALID_CATALOG`로 거부합니다. 로컬 action의 `describe`는 브리지가 직접 답하고, 서버의 전체 목록에는 로컬 action을 덧붙입니다.
+
+`pixelbank_issue_upload`, `pixelbank_save_source`, `pixelbank_get_workspace`, `pixelbank_get_workflow_status`는 설치된 브리지를 위해 원격 목록에 그대로 남지만 모델에게는 노출하지 않습니다. 로컬 action이 정확한 이름으로 호출하며, 직접 호출하면 로컬에서 거부하고 대신 쓸 action을 알려 줍니다. 예전 도구 이름은 브리지가 알 수 있으면 `replacement` 도구와 action을 담아 `TOOL_RETIRED`로, 그 밖의 알 수 없는 이름은 `UNKNOWN_TOOL`로 로컬에서 거부합니다.
+
+작업 전에 일어난 거부인 `INVALID_ARGUMENTS`(`location`, `problem`, `tool`, `action` 힌트 포함)와 `INVALID_ACTION`(도구의 `actions` 포함)은 고쳐서 다시 보내도록 안내합니다. 브리지의 사전 거부도 같은 코드를 사용합니다. 도메인 규칙의 `INVALID_INPUT`과 분류되지 않은 거부는 서비스가 요청 일부를 이미 저장했을 수 있으므로 쓰기 가능성 안내를 유지합니다.
 
 ### 워크플로 진행 대기의 범위
 
-원격 목록에 숨겨진 `pixelbank_get_workflow_status`가 있으면 브리지가 `pixelbank_wait_for_workflow`를 추가합니다. 실시간 상태 조회 인수를 그대로 사용하고 `max_wait_seconds`(1–60, 기본 30)를 추가합니다. 조회 간격은 최소 5초이며 서버가 더 긴 시간을 지정하면 그에 따르고, 같은 버전이 유지되면 간격을 늘립니다. 재시도 대기 거부는 그대로 반환합니다. 이미 완료·실패했거나 실행 중이 아닌 실행은 첫 조회 후 기다리지 않고 반환합니다. 대기 만료나 취소는 서버에서 이미 접수한 실행을 중단하지 않습니다.
+원격 목록에 숨겨진 `pixelbank_get_workflow_status`가 있으면 브리지가 `pixelbank_read` action `wait_for_workflow`를 추가합니다. 실시간 상태 조회 인수를 그대로 사용하고 `max_wait_seconds`(1–60, 기본 30)를 추가합니다. 조회 간격은 최소 5초이며 서버가 더 긴 시간을 지정하면 그에 따르고, 같은 버전이 유지되면 간격을 늘립니다. 재시도 대기 거부는 그대로 반환합니다. 이미 완료·실패했거나 실행 중이 아닌 실행은 첫 조회 후 기다리지 않고 반환합니다. 대기 만료나 취소는 서버에서 이미 접수한 실행을 중단하지 않습니다.
 
 ### 버전과 산출물 식별
 

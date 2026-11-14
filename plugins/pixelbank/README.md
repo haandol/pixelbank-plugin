@@ -91,19 +91,19 @@ Credentials are stored in owner-only files under `~/.pixelbank-plugin/`, separat
 
 Billable calls carry the approved credit maximum and one stable operation key. Retries must preserve both and the original request. The bridge does not automatically replay a write after an uncertain outcome. Accepted jobs are reported as accepted until the server reports completion or failure. Quotes and prepared-workspace opening do not consume free uses or credits.
 
-The bridge provides five local tools: `pixelbank_connect`, `pixelbank_disconnect`, `pixelbank_upload_image`, `pixelbank_open_workspace` and `pixelbank_open_credits_page`. When the server offers workflow progress, it adds the read-only `pixelbank_wait_for_workflow`. Provider credentials, account administration and checkout are not exposed. Page opening uses the default browser without controlling its active tab.
-
-Other tools come from the authenticated server, grouped by permission. Each grouped tool selects one operation with `action`:
+Your assistant sees five PixelbankStudio tools, one per kind of permission. Each tool selects one operation with `action`, and the assistant can look up an operation's exact inputs before calling it:
 
 | Tool | Operations |
 | --- | --- |
-| `pixelbank_read`, `pixelbank_read_workflow` | Read the account, images, animations, jobs, workflows and their activity; quote upscaling and workflows. Nothing is changed or charged. |
-| `pixelbank_edit`, `pixelbank_edit_workflow` | Prepare a web workspace, set tags, save a cutout, rebuild a GIF; create a workflow run, supply its inputs or import a source. No processing or charge. |
+| `pixelbank_read` | Read the account, images, animations, jobs, workflows and their activity; quote upscaling and workflows; wait briefly for a running workflow; open a prepared web workspace. Nothing is changed or charged. |
+| `pixelbank_edit` | Upload an image you selected, prepare a web workspace, set tags, save a cutout, rebuild a GIF; create a workflow run, supply its inputs or import a source. No processing or charge. |
 | `pixelbank_delete` | Permanently delete one image, animation or workflow run after you explicitly confirm it. |
-| `pixelbank_process_image`, `pixelbank_generate` | Remove a background, segment or upscale an image; generate an image or animation, or correct one frame. These use free uses or credits. |
-| `pixelbank_execute_workflow` | Start one quoted workflow within its approved maximum. |
+| `pixelbank_run` | Remove a background, segment or upscale an image; generate an image or animation, correct one frame or start one quoted workflow. These use free uses or credits. |
+| `pixelbank_connection` | Connect, disconnect or open the credit purchase page. |
 
-A host approval for a grouped tool covers every operation of that tool. Deletion and credit-spending work stay in their own tools, so approving reads or edits never approves them. Since PixelbankStudio switched to grouped tools, approvals saved for the former per-operation tool names no longer apply, whichever plugin version is installed, and your host asks again.
+Uploading, waiting and workspace opening run on your computer inside the plugin. Provider credentials, account administration and checkout are not exposed. Page opening uses the default browser without controlling its active tab.
+
+A host approval for a tool covers every operation of that tool. Deletion and credit-spending work stay in their own tools, so approving reads or edits never approves them. Approving `pixelbank_read` also allows waiting and workspace opening, and approving `pixelbank_edit` also allows uploading a selected image. Approvals saved for earlier tool names, including the former separate connection, upload, workspace, wait and credit-page tools, no longer apply, and your host asks again.
 
 When a requested operation lacks credits, the bridge opens the [credit purchase page](https://www.pixelbankstudio.com/pricing) and returns its link. If opening is unavailable, use the same link. Choose and pay for a package on the website, then ask the assistant to continue your original request; it checks the updated balance, price and approval before proceeding. A usable free trial can still run with a zero balance. Opening the page does not add credits or automatically resubmit processing.
 
