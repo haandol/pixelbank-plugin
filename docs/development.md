@@ -41,9 +41,15 @@ The bridge refreshes authenticated `tools/list` before forwarding a remote call 
 
 The package contains a manually maintained public tool snapshot for offline reading and reproducible builds. Automatic OpenAPI export and repository synchronization are deferred; live validation and workflow execution remain available independently. Maintainers update the tool snapshot explicitly alongside a compatible service change and run the existing interoperability checks.
 
+### Grouped remote tools and internal reads
+
+The server groups its operations into tools by authority class: reads, plain edits, deletion and billable processing never share one tool. A grouped tool takes a required top-level `action` and that action's arguments in the object with the same name; billable tools keep `operation_key`, `maximum_credits` and the optional paid-fallback and workflow context at the top level. The bridge forwards these tools, their schemas and annotations unchanged and does not alias former per-operation names, so a retired name is refused locally as `UNKNOWN_TOOL`.
+
+`pixelbank_issue_upload`, `pixelbank_save_source`, `pixelbank_get_workspace` and `pixelbank_get_workflow_status` stay in the remote catalog for local helpers but are never listed to the model. `pixelbank_upload_image`, `pixelbank_open_workspace` and `pixelbank_wait_for_workflow` call them by exact name; a direct call is refused locally and names the local replacement.
+
 ### Bounded workflow progress
 
-When the remote catalog exposes `pixelbank_get_workflow_status`, the bridge adds `pixelbank_wait_for_workflow`. It inherits the live status arguments and adds `max_wait_seconds` (1–60, default 30). Status requests wait at least 5 seconds, follow larger server delays and back off when the revision is unchanged. A retry-after refusal is returned unchanged. Terminal or inactive states stop polling; expiry and cancellation leave the accepted server execution running.
+When the remote catalog exposes the hidden `pixelbank_get_workflow_status`, the bridge adds `pixelbank_wait_for_workflow`. It inherits the live status arguments and adds `max_wait_seconds` (1–60, default 30). Status requests wait at least 5 seconds, follow larger server delays and back off when the revision is unchanged. A retry-after refusal is returned unchanged. A run that is already completed, failed or not running returns after its first read without pausing; expiry and cancellation leave the accepted server execution running.
 
 ### Version and artifact identity
 
