@@ -1,33 +1,35 @@
-import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
-import type { JsonSchemaType } from '@modelcontextprotocol/server';
+import { Ajv2020, type ErrorObject } from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import type { Auth } from './auth.js';
 import { SafeError, invalidArgumentsMessage } from './errors.js';
 
 type Tool = Awaited<ReturnType<Auth['listCreativeTools']>>[number];
 export interface ArgumentContext { tool?: string; action?: string; prefix?: string; problem?: string }
 
+// The bridge's own 2020-12 engine with the SDK validator's options; it never logs, coerces or adds defaults.
+const engine = new Ajv2020({ strict: false, validateSchema: false, allErrors: true, logger: false });
+addFormats.default(engine);
+
 /** Validate the current schema without coercing, defaulting or disclosing supplied values. */
 export function validateToolInput(tool: Tool, input: Record<string, unknown>, context: ArgumentContext = {}): void {
-  let result: { valid: boolean; errorMessage?: string };
-  let validator: AjvJsonSchemaValidator;
+  let errors: ErrorObject[];
   try {
-    validator = new AjvJsonSchemaValidator();
-    result = validator.getValidator(tool.inputSchema as JsonSchemaType)(input);
+    const validate = engine.compile(tool.inputSchema);
+    errors = validate(input) ? [] : validate.errors ?? [];
   } catch {
     throw new SafeError('INVALID_CATALOG', 'The current tool schema could not be validated. Refresh the service catalog.');
+  } finally {
+    // Each discovery returns fresh schema objects; dropping them keeps the engine's cache bounded.
+    try { engine.removeSchema(tool.inputSchema); } catch { /* a schema that never compiled left nothing to drop */ }
   }
-  if (result.valid) return;
-  const failure: { location: string; problem?: string } = firstFailure(validator, tool.inputSchema, input) ??
-    { location: firstLocation(result.errorMessage) };
+  if (!errors.length) return;
+  const failure = firstFailure(errors);
   throw invalidArguments(`${context.prefix ?? ''}${failure.location}`, { ...context, problem: failure.problem ?? context.problem });
 }
 
 export function invalidArguments(location: string, { tool, action, problem }: ArgumentContext = {}): SafeError {
   return new SafeError('INVALID_ARGUMENTS', invalidArgumentsMessage, undefined, { location: location || '/', tool, action, problem });
 }
-
-interface AjvError { keyword: string; instancePath: string; params: Record<string, unknown> }
-interface AjvEngine { compile(schema: unknown): ((input: unknown) => boolean) & { errors?: AjvError[] | null } }
 
 /** The service's constraint names, keyed by validator keyword. */
 const problems: Record<string, string> = {
@@ -41,22 +43,9 @@ const rank = (keyword: string) => keyword === 'required' ? 0 : keyword === 'addi
 const escape = (key: string) => key.replaceAll('~', '~0').replaceAll('/', '~1');
 
 /** Names the failing property itself, not its parent object, from the validator's structured errors. */
-function firstFailure(validator: AjvJsonSchemaValidator, schema: unknown, input: unknown): { location: string; problem: string } | undefined {
-  try {
-    // The default 2020-12 engine is the one getValidator uses for these undeclared-dialect schemas.
-    const engine = (validator as unknown as { ajv: AjvEngine }).ajv;
-    const validate = engine.compile(schema);
-    if (validate(input)) return undefined;
-    const errors = (validate.errors ?? []).filter(error => error.keyword !== 'if');
-    const error = [...errors].sort((left, right) => rank(left.keyword) - rank(right.keyword))[0];
-    if (!error) return undefined;
-    const property = error.params.missingProperty ?? error.params.additionalProperty;
-    const location = `${error.instancePath}${typeof property === 'string' ? `/${escape(property)}` : ''}`;
-    return { location, problem: problems[error.keyword] ?? 'invalid' };
-  } catch { return undefined; }
-}
-
-// The validator reports locations as data/<pointer>; only the first pointer is kept and sanitized by SafeError.
-function firstLocation(message = ''): string {
-  return /^data(\/\S*?)?(?=[\s,]|$)/.exec(message)?.[1] ?? '';
+function firstFailure(errors: ErrorObject[]): { location: string; problem?: string } {
+  const error = errors.filter(entry => entry.keyword !== 'if').sort((left, right) => rank(left.keyword) - rank(right.keyword))[0];
+  if (!error) return { location: '' };
+  const property = (error.params as Record<string, unknown>).missingProperty ?? (error.params as Record<string, unknown>).additionalProperty;
+  return { location: `${error.instancePath}${typeof property === 'string' ? `/${escape(property)}` : ''}`, problem: problems[error.keyword] ?? 'invalid' };
 }
