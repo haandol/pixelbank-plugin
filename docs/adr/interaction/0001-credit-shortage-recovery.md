@@ -25,7 +25,7 @@ This decision owns desktop navigation and assistant recovery guidance. The remot
 
 When a requested operation is refused because credits are insufficient, open the PixelbankStudio credit purchase page in the default browser and include its link in the error outcome and creator-facing reply. The destination is exactly https://www.pixelbankstudio.com/pricing, with no account credentials, order or operation data in the URL.
 
-The assistant may open the same page before submission when current account information and the selected task's price establish insufficient funding after considering eligible free uses. A zero credit balance alone does not establish that condition. A dedicated page-opening control also supports an explicit request to visit the credit page.
+The assistant may open the same page before submission when current account information and the selected task's price establish insufficient funding after considering eligible free uses. A zero credit balance alone does not establish that condition. The local connection tool's credit-page action also supports an explicit request to visit the credit page; it accepts no destination or other argument.
 
 ### Requirement contract
 

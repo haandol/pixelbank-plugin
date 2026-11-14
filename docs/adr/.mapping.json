@@ -8,7 +8,7 @@
         {
           "path": "docs/adr/distribution/0001-bun-plugin-runtime.md",
           "status": "Proposed",
-          "summary": "Retain Bun installation and verified bilingual distribution; validate live remote contracts, forward grouped remote tools unchanged, keep upload, source, workspace and workflow-status reads internal behind local tools, and provide bounded read-only workflow waiting. Automated artifact synchronization is deferred."
+          "summary": "Retain Bun installation and verified bilingual distribution; validate live remote contracts and show exactly five tools: the four grouped remote tools with local wait and workspace opening added to read and image upload added to edit, plus a local connection tool; answer describe for local actions locally, keep the four compatibility tools internal, distinguish argument refusals from possible writes, and provide bounded read-only workflow waiting. Automated artifact synchronization is deferred."
         }
       ]
     },

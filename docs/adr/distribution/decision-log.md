@@ -36,6 +36,13 @@ optional for understanding the current decision.
     not start with NNNN-).
   - Replace the example entry below with real content when recording the first major transition. -->
 
+## 2026-11-14 — Five visible tools with local actions in their class
+
+- **Current ADR**: [Bun-based plugin installation and distribution](./0001-bun-plugin-runtime.md)
+- **Change type**: requirement rule change
+- **What**: Grouped remote tools plus separate local connection, disconnection, credit-page, upload, workspace-opening and wait tools → exactly five tools: the four remote class tools, with waiting and workspace opening as read actions and image upload as an edit action, and one local connection tool whose actions connect, disconnect and open the credit page. Describe for a local action is answered locally and the full listing includes local actions. Former names are refused as retired with their replacement instead of as unknown. Argument refusals reported as INVALID_ARGUMENTS say nothing started, while INVALID_INPUT keeps the possible-write guidance.
+- **Why**: The service reduced its catalog to one tool per authority class with on-demand argument schemas, and the user selected the same five-tool surface for the assistant so hosts approve each class once.
+
 ## 2026-11-14 — Hide wrapped remote reads behind local tools
 
 - **Current ADR**: [Bun-based plugin installation and distribution](./0001-bun-plugin-runtime.md)
