@@ -103,7 +103,7 @@ Other tools come from the authenticated server, grouped by permission. Each grou
 | `pixelbank_process_image`, `pixelbank_generate` | Remove a background, segment or upscale an image; generate an image or animation, or correct one frame. These use free uses or credits. |
 | `pixelbank_execute_workflow` | Start one quoted workflow within its approved maximum. |
 
-A host approval for a grouped tool covers every operation of that tool. Deletion and credit-spending work stay in their own tools, so approving reads or edits never approves them. Approvals saved for tool names used before version 0.3.0 no longer apply, and your host asks again.
+A host approval for a grouped tool covers every operation of that tool. Deletion and credit-spending work stay in their own tools, so approving reads or edits never approves them. Since PixelbankStudio switched to grouped tools, approvals saved for the former per-operation tool names no longer apply, whichever plugin version is installed, and your host asks again.
 
 When a requested operation lacks credits, the bridge opens the [credit purchase page](https://www.pixelbankstudio.com/pricing) and returns its link. If opening is unavailable, use the same link. Choose and pay for a package on the website, then ask the assistant to continue your original request; it checks the updated balance, price and approval before proceeding. A usable free trial can still run with a zero balance. Opening the page does not add credits or automatically resubmit processing.
 
