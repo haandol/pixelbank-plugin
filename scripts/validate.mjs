@@ -89,20 +89,32 @@ assert.equal(info.contractsSha256, await hash('contracts/tools.json'));
 const tools = await read('plugins/pixelbank/contracts/tools.json');
 assert(tools.tools.length > 0, 'The public tool catalog must not be empty');
 assert.equal(new Set(tools.tools.map(tool => tool.name)).size, tools.tools.length);
-// The packaged contract must be exactly the grouped catalog the skill teaches, so a stale snapshot cannot ship.
+// The packaged contract must be exactly the five-tool catalog the skill teaches, so a stale snapshot cannot ship.
 const skill = await readFile(resolve(plugin, 'skills/creative-workflows/SKILL.md'), 'utf8');
 const table = new Map([...skill.matchAll(/^\| `(pixelbank_[a-z_]+)` \| (.+) \|$/gm)]
   .map(([, name, cell]) => [name, [...cell.matchAll(/`([a-z_]+)`/g)].map(match => match[1]).sort()]));
-assert(table.size > 0, 'The creative-workflows skill must list its grouped tools and actions');
-const { internalToolNames } = await import('../plugins/pixelbank/src/catalog.ts');
-const expectedNames = [...table.keys(), 'pixelbank_execute_workflow', ...internalToolNames].sort();
+const catalog = await import('../plugins/pixelbank/src/catalog.ts');
+assert.equal(table.size, 5, 'The creative-workflows skill must list exactly five tools and their actions');
+assert.deepEqual(table.get(catalog.CONNECTION_TOOL), [...catalog.CONNECTION_ACTIONS].sort(), 'The connection tool actions must match the skill');
 const contractNames = tools.tools.map(tool => tool.name).sort();
+const expectedNames = [...table.keys()].filter(name => name !== catalog.CONNECTION_TOOL).concat(catalog.internalToolNames).sort();
 const retired = [...table.values()].flat().map(action => `pixelbank_${action}`).filter(name => contractNames.includes(name));
 assert.deepEqual(retired, [], `The packaged contract still names retired per-operation tools: ${retired.join(', ')}`);
-assert.deepEqual(contractNames, expectedNames, 'The packaged contract must contain exactly the grouped tool set from the skill');
-for (const tool of tools.tools) {
-  const actions = tool.inputSchema?.properties?.action?.enum;
-  if (table.has(tool.name)) assert.deepEqual([...actions ?? []].sort(), table.get(tool.name), `${tool.name} actions must match the skill's action table`);
-  else assert.equal(actions, undefined, `${tool.name} is not a grouped tool and must not take an action`);
+assert.deepEqual(contractNames, expectedNames, 'The packaged contract must contain exactly the remote tools from the skill and the internal compatibility tools');
+for (const tool of tools.tools) if (catalog.internalToolNames.includes(tool.name))
+  assert.equal(tool.inputSchema?.properties?.action, undefined, `${tool.name} is a compatibility tool and must not take an action`);
+const visible = catalog.advertisedTools(tools.tools);
+assert.deepEqual(visible.map(tool => tool.name).sort(), [...table.keys()].sort(), 'The bridge must advertise exactly the five tools from the skill');
+const budget = tools.tool_budget_bytes;
+assert(Number.isInteger(budget) && budget > 0, 'The packaged contract must record its tool budget');
+const sizes = {};
+for (const tool of visible) {
+  assert.deepEqual(catalog.actionNames(tool).sort(), table.get(tool.name), `${tool.name} actions, including local actions, must match the skill`);
+  sizes[tool.name] = Buffer.byteLength(JSON.stringify(tool));
+  assert(sizes[tool.name] <= budget, `${tool.name} is ${sizes[tool.name]} bytes, over the ${budget}-byte tool budget`);
 }
-console.log(`PixelbankStudio Plugin ${pkg.version}: marketplace, package, host manifests and ${tools.tools.length} tool contracts agree.`);
+const described = new Set(tools.actions?.map(entry => `${entry.tool}/${entry.action}`));
+for (const tool of visible) for (const action of catalog.actionNames(tool))
+  if (!catalog.localActions.some(local => local.tool === tool.name && local.action === action) && tool.name !== catalog.CONNECTION_TOOL)
+    assert(described.has(`${tool.name}/${action}`), `The packaged contract must hold the exact schema of ${tool.name} action ${action}`);
+console.log(`PixelbankStudio Plugin ${pkg.version}: marketplace, package, host manifests and ${tools.tools.length} tool contracts agree; advertised tool bytes ${JSON.stringify(sizes)} within ${budget}.`);
