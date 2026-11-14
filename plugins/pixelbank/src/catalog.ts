@@ -56,11 +56,17 @@ export const localActions: readonly LocalAction[] = [
   },
 ];
 
+export const connectionSummaries: Record<(typeof CONNECTION_ACTIONS)[number], string> = {
+  connect: 'Connect PixelbankStudio through browser sign-in, or check a sign-in already in progress.',
+  disconnect: 'Revoke this connection and remove its local credentials; accepted creative jobs continue.',
+  open_credits_page: 'Open the fixed credit purchase page in the default browser; never pays, adds credits or retries processing.',
+};
+
 export const connectionTool: Tool = {
   name: CONNECTION_TOOL,
   description: 'Manage the PixelbankStudio connection. Actions: connect (browser sign-in, or check one in progress), ' +
     'disconnect (revoke this connection and remove local credentials; accepted jobs continue), open_credits_page ' +
-    '(open the credit purchase page; never pays, adds credits or retries processing). Each action takes action alone.',
+    '(open the credit purchase page; never pays, adds credits or retries processing). Send the action alone.',
   inputSchema: { type: 'object', properties: { action: { type: 'string', enum: [...CONNECTION_ACTIONS] } },
     required: ['action'], additionalProperties: false },
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
@@ -82,7 +88,7 @@ export function retiredLocalTool(name: string): SafeError | undefined {
 /** A former per-operation name whose action now lives in a visible remote tool. */
 export function retiredRemoteTool(name: string, catalog: ToolCatalog): SafeError | undefined {
   const action = name.slice('pixelbank_'.length);
-  const owner = visibleRemoteTools(catalog).find(tool => actionNames(tool).includes(action));
+  const owner = action === DESCRIBE_ACTION ? undefined : visibleRemoteTools(catalog).find(tool => actionNames(tool).includes(action));
   return owner && retiredTool(owner.name, action);
 }
 

@@ -2,7 +2,8 @@ import type { Auth } from './auth.js';
 import { SafeError, type Secrets } from './errors.js';
 import type { openBrowser } from './oauth.js';
 import type { RemoteOptions } from './remote.js';
-import { availableLocalActions, findLocalAction, ARGUMENTS_FIELD, DESCRIBE_ACTION, READ_TOOL, type LocalAction } from './catalog.js';
+import { availableLocalActions, connectionSummaries, findLocalAction, ARGUMENTS_FIELD, CONNECTION_ACTIONS, CONNECTION_TOOL, DESCRIBE_ACTION, READ_TOOL,
+  type LocalAction } from './catalog.js';
 import { invalidArguments, validateToolInput } from './input.js';
 import { parseUploadInput, uploadImage } from './upload.js';
 import { openPreparedWorkspace } from './workspace.js';
@@ -42,22 +43,29 @@ function localArguments(local: LocalAction, input: Record<string, unknown>, cata
   return args as Record<string, unknown>;
 }
 
-function authority(local: LocalAction) {
-  return local.tool === READ_TOOL ? 'read' : 'write';
+interface Described { tool: string; action: string; authority: string; summary: string; schema: () => unknown }
+
+/** Every action the bridge answers itself: available local actions and the connection actions. */
+function describable(catalog: ToolCatalog): Described[] {
+  return [
+    ...availableLocalActions(catalog).map(local => ({ tool: local.tool, action: local.action, authority: local.tool === READ_TOOL ? 'read' : 'write',
+      summary: local.summary, schema: () => local.schema(catalog) })),
+    ...CONNECTION_ACTIONS.map(action => ({ tool: CONNECTION_TOOL, action, authority: 'connection', summary: connectionSummaries[action],
+      schema: () => ({ type: 'object', additionalProperties: false }) })),
+  ];
 }
 
-/** Describes a local action locally, and adds local actions to a full listing returned by the service. */
+/** Describes a bridge-owned action locally, and adds bridge-owned actions to a full listing returned by the service. */
 async function describe({ auth, catalog }: LocalDependencies, input: Record<string, unknown>, options: RemoteOptions) {
   const target = describedAction(input);
-  const locals = availableLocalActions(catalog);
-  const local = locals.find(entry => entry.action === target);
+  const owned = describable(catalog);
+  const local = owned.find(entry => entry.action === target);
   if (local) {
     const context = { tool: READ_TOOL, action: DESCRIBE_ACTION, problem: 'unexpected' };
     const extra = Object.keys(input).find(key => key !== 'action' && key !== ARGUMENTS_FIELD) ??
       Object.keys(input[ARGUMENTS_FIELD] as object).find(key => key !== 'action');
     if (extra !== undefined) throw invalidArguments(Object.hasOwn(input, extra) ? `/${extra}` : `/${ARGUMENTS_FIELD}/${extra}`, context);
-    return { data: { tool: local.tool, action: local.action, authority: authority(local), description: local.summary,
-      arguments_schema: local.schema(catalog) } };
+    return { data: { tool: local.tool, action: local.action, authority: local.authority, description: local.summary, arguments_schema: local.schema() } };
   }
   const read = catalog.find(tool => tool.name === READ_TOOL)!;
   validateToolInput(read, input, { tool: READ_TOOL, action: DESCRIBE_ACTION });
@@ -65,8 +73,7 @@ async function describe({ auth, catalog }: LocalDependencies, input: Record<stri
   if (target !== undefined) return value;
   const data = value.data as { actions?: unknown } | undefined;
   if (!data || !Array.isArray(data.actions)) throw new SafeError('INVALID_RESPONSE', 'The action listing did not match its contract. Nothing was changed.');
-  return { ...value, data: { ...data, actions: [...data.actions, ...locals.map(entry => ({ tool: entry.tool, action: entry.action,
-    authority: authority(entry), summary: entry.summary }))] } };
+  return { ...value, data: { ...data, actions: [...data.actions, ...owned.map(({ tool, action, authority, summary }) => ({ tool, action, authority, summary }))] } };
 }
 
 function describedAction(input: Record<string, unknown>): unknown {

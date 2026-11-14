@@ -43493,9 +43493,14 @@ var localActions = [
     })
   }
 ];
+var connectionSummaries = {
+  connect: "Connect PixelbankStudio through browser sign-in, or check a sign-in already in progress.",
+  disconnect: "Revoke this connection and remove its local credentials; accepted creative jobs continue.",
+  open_credits_page: "Open the fixed credit purchase page in the default browser; never pays, adds credits or retries processing."
+};
 var connectionTool = {
   name: CONNECTION_TOOL,
-  description: "Manage the PixelbankStudio connection. Actions: connect (browser sign-in, or check one in progress), " + "disconnect (revoke this connection and remove local credentials; accepted jobs continue), open_credits_page " + "(open the credit purchase page; never pays, adds credits or retries processing). Each action takes action alone.",
+  description: "Manage the PixelbankStudio connection. Actions: connect (browser sign-in, or check one in progress), " + "disconnect (revoke this connection and remove local credentials; accepted jobs continue), open_credits_page " + "(open the credit purchase page; never pays, adds credits or retries processing). Send the action alone.",
   inputSchema: {
     type: "object",
     properties: { action: { type: "string", enum: [...CONNECTION_ACTIONS] } },
@@ -43516,7 +43521,7 @@ function retiredLocalTool(name) {
 }
 function retiredRemoteTool(name, catalog) {
   const action = name.slice("pixelbank_".length);
-  const owner = visibleRemoteTools(catalog).find((tool) => actionNames(tool).includes(action));
+  const owner = action === DESCRIBE_ACTION ? undefined : visibleRemoteTools(catalog).find((tool) => actionNames(tool).includes(action));
   return owner && retiredTool(owner.name, action);
 }
 function retiredTool(tool, action) {
@@ -43594,25 +43599,34 @@ function localArguments(local, input, catalog) {
   validateToolInput({ name: local.tool, inputSchema: local.schema(catalog) }, args, { ...context, prefix: `/${ARGUMENTS_FIELD}` });
   return args;
 }
-function authority(local) {
-  return local.tool === READ_TOOL ? "read" : "write";
+function describable(catalog) {
+  return [
+    ...availableLocalActions(catalog).map((local) => ({
+      tool: local.tool,
+      action: local.action,
+      authority: local.tool === READ_TOOL ? "read" : "write",
+      summary: local.summary,
+      schema: () => local.schema(catalog)
+    })),
+    ...CONNECTION_ACTIONS.map((action) => ({
+      tool: CONNECTION_TOOL,
+      action,
+      authority: "connection",
+      summary: connectionSummaries[action],
+      schema: () => ({ type: "object", additionalProperties: false })
+    }))
+  ];
 }
 async function describe2({ auth, catalog }, input, options) {
   const target = describedAction(input);
-  const locals = availableLocalActions(catalog);
-  const local = locals.find((entry) => entry.action === target);
+  const owned = describable(catalog);
+  const local = owned.find((entry) => entry.action === target);
   if (local) {
     const context = { tool: READ_TOOL, action: DESCRIBE_ACTION, problem: "unexpected" };
     const extra = Object.keys(input).find((key) => key !== "action" && key !== ARGUMENTS_FIELD) ?? Object.keys(input[ARGUMENTS_FIELD]).find((key) => key !== "action");
     if (extra !== undefined)
       throw invalidArguments(Object.hasOwn(input, extra) ? `/${extra}` : `/${ARGUMENTS_FIELD}/${extra}`, context);
-    return { data: {
-      tool: local.tool,
-      action: local.action,
-      authority: authority(local),
-      description: local.summary,
-      arguments_schema: local.schema(catalog)
-    } };
+    return { data: { tool: local.tool, action: local.action, authority: local.authority, description: local.summary, arguments_schema: local.schema() } };
   }
   const read = catalog.find((tool) => tool.name === READ_TOOL);
   validateToolInput(read, input, { tool: READ_TOOL, action: DESCRIBE_ACTION });
@@ -43622,12 +43636,7 @@ async function describe2({ auth, catalog }, input, options) {
   const data = value.data;
   if (!data || !Array.isArray(data.actions))
     throw new SafeError("INVALID_RESPONSE", "The action listing did not match its contract. Nothing was changed.");
-  return { ...value, data: { ...data, actions: [...data.actions, ...locals.map((entry) => ({
-    tool: entry.tool,
-    action: entry.action,
-    authority: authority(entry),
-    summary: entry.summary
-  }))] } };
+  return { ...value, data: { ...data, actions: [...data.actions, ...owned.map(({ tool, action, authority, summary }) => ({ tool, action, authority, summary }))] } };
 }
 function describedAction(input) {
   const args = input[ARGUMENTS_FIELD];
@@ -43635,6 +43644,7 @@ function describedAction(input) {
 }
 
 // src/server.ts
+var isEmptyObject = (value) => !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0;
 function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone", dependencies = {}) {
   const base = dependencies.auth ? validateBase(dependencies.auth.base) : resolveBase();
   const secrets = dependencies.auth?.secrets ?? new Secrets;
@@ -43674,8 +43684,9 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     let value;
     try {
       if (name === CONNECTION_TOOL) {
-        if (Object.keys(input).some((key) => key !== "action") || !CONNECTION_ACTIONS.includes(input.action))
-          throw new SafeError("INVALID_ARGUMENTS", `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(", ")}) and accepts no credentials, URLs, payment information or other arguments.`, undefined, { tool: CONNECTION_TOOL, location: Object.keys(input).some((key) => key !== "action") ? "/" : "/action" });
+        const extra = Object.keys(input).some((key) => key !== "action" && !(key === "arguments" && isEmptyObject(input.arguments)));
+        if (extra || !CONNECTION_ACTIONS.includes(input.action))
+          throw new SafeError("INVALID_ARGUMENTS", `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(", ")}) and accepts no credentials, URLs, payment information or other arguments.`, undefined, { tool: CONNECTION_TOOL, location: extra ? "/" : "/action" });
         if (input.action === "open_credits_page")
           value = await openCreditsPage(browser);
         else {

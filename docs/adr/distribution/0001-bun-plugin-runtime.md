@@ -68,8 +68,9 @@ The read tool's describe operation is answered by the bridge for a local action:
 it returns that action's exact argument schema, required fields and authority
 without a remote request. Describing a remote action is forwarded unchanged.
 Describing without an action forwards the request and adds a one-line summary of
-each advertised local action to the server's list, so one listing covers every
-action of all five tools.
+each advertised local action and connection action to the server's list, so one
+listing covers every action of all five tools. Describing a connection action is
+also answered locally.
 
 An argument refusal states that nothing started and that the corrected call can
 be sent again. The service reports such refusals as INVALID_ARGUMENTS with the
@@ -89,7 +90,7 @@ status read without waiting. The helper follows server timing and never turns a
 poll into a write.
 
 The bundled creative-workflow guidance names the five tools and their actions,
-explains the action-plus-named-arguments calling pattern and describe-before-call,
+explains the action-plus-arguments calling pattern and describe-before-call,
 and keeps each action's consent cues: quote before paid work, keep the operation
 key and approved maximum, confirm deletion only after explicit intent, and follow
 progress with the wait.

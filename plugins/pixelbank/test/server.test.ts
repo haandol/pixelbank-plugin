@@ -26,7 +26,8 @@ test('disconnected catalog lists only the connection tool and never leaks the re
   assert.deepEqual(result.tools.map(t => t.name), ['pixelbank_connection']);
   assert.deepEqual((result.tools[0]!.inputSchema.properties!.action as any).enum, ['connect', 'disconnect', 'open_credits_page']);
   assert.equal(m.requests.length, 0);
-  for (const input of [{ action: 'connect', access_token: 'supplied-secret' }, { access_token: 'supplied-secret' }, { action: 'reset' }]) {
+  for (const input of [{ action: 'connect', access_token: 'supplied-secret' }, { access_token: 'supplied-secret' }, { action: 'reset' },
+    { action: 'connect', arguments: { access_token: 'supplied-secret' } }, { action: 'connect', arguments: [] }]) {
     const denied = await client.callTool({ name: 'pixelbank_connection', arguments: input });
     assert.equal(denied.isError, true); assert.equal((denied.structuredContent as any).error.code, 'INVALID_ARGUMENTS');
     assert.equal((denied.structuredContent as any).error.tool, 'pixelbank_connection');
@@ -255,6 +256,10 @@ test('describing a local action is answered locally with the schema the bridge e
     assert.deepEqual([(denied.structuredContent as any).error.code, (denied.structuredContent as any).error.location], ['INVALID_ARGUMENTS', location]);
   }
   assert.deepEqual([(upload.structuredContent as any).data.tool, (upload.structuredContent as any).data.authority], ['pixelbank_edit', 'write']);
+  const credits = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'describe', arguments: { action: 'open_credits_page' } } });
+  assert.deepEqual((credits.structuredContent as any).data, { tool: 'pixelbank_connection', action: 'open_credits_page', authority: 'connection',
+    description: 'Open the fixed credit purchase page in the default browser; never pays, adds credits or retries processing.',
+    arguments_schema: { type: 'object', additionalProperties: false } });
   assert.equal(m.rpcCalls().length, 0);
   m.flags.apiBody = { data: { tool: 'pixelbank_run', action: 'generate_image', authority: 'execute', arguments_schema: { type: 'object' } } };
   const remote = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'describe', arguments: { action: 'generate_image' } } });
@@ -268,7 +273,8 @@ test('describing without an action adds the local actions to the service listing
   m.flags.apiBody = { data: { actions: [{ tool: 'pixelbank_read', action: 'get_account', summary: 'Read the account.' }] } };
   const result = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'describe' } });
   const listed = (result.structuredContent as any).data.actions.map((entry: any) => `${entry.tool}/${entry.action}`);
-  assert.deepEqual(listed, ['pixelbank_read/get_account', 'pixelbank_read/wait_for_workflow', 'pixelbank_read/open_workspace', 'pixelbank_edit/upload_image']);
+  assert.deepEqual(listed, ['pixelbank_read/get_account', 'pixelbank_read/wait_for_workflow', 'pixelbank_read/open_workspace', 'pixelbank_edit/upload_image',
+    'pixelbank_connection/connect', 'pixelbank_connection/disconnect', 'pixelbank_connection/open_credits_page']);
   assert.deepEqual(m.rpcCalls().map(call => (call.body as any).params), [{ name: 'pixelbank_read', arguments: { action: 'describe' }, _meta: (m.rpcCalls()[0]!.body as any).params._meta }]);
 });
 
@@ -365,7 +371,7 @@ test('host cancellation closes the remote request stream without replaying the a
 test('credit page opens the fixed public destination without sign-in, payment input or remote calls', async t => {
   const { m, client, opens, settings } = await fixture(t, false);
   const creditsUrl = 'https://www.pixelbankstudio.com/pricing';
-  const opened = await client.callTool({ name: 'pixelbank_connection', arguments: { action: 'open_credits_page' } });
+  const opened = await client.callTool({ name: 'pixelbank_connection', arguments: { action: 'open_credits_page', arguments: {} } });
   assert.deepEqual(opened.structuredContent, { data: { url: creditsUrl, opened: true } });
   assert.deepEqual(opens, [creditsUrl]); assert.equal(m.requests.length, 0);
   for (const input of [{ url: 'https://attacker.invalid' }, { plan_id: 'plan' }, { access_token: 'supplied-secret' }]) {

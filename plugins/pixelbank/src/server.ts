@@ -12,6 +12,8 @@ import { validateToolInput } from './input.js';
 import { apiError } from './api-errors.js';
 export { validateWorkspaceURL } from './workspace.js';
 
+const isEmptyObject = (value: unknown) => !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0;
+
 /** The local server bridges only the authenticated remote catalog and local connection actions. */
 export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'standalone', dependencies: { auth?: Auth; browser?: typeof openBrowser } = {}) {
   const base = dependencies.auth ? validateBase(dependencies.auth.base) : resolveBase();
@@ -43,9 +45,11 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
     let value: Record<string, unknown>;
     try {
       if (name === CONNECTION_TOOL) {
-        if (Object.keys(input).some(key => key !== 'action') || !CONNECTION_ACTIONS.includes(input.action as never))
+        // An empty arguments object is accepted like any argument-free action; nothing else is.
+        const extra = Object.keys(input).some(key => key !== 'action' && !(key === 'arguments' && isEmptyObject(input.arguments)));
+        if (extra || !CONNECTION_ACTIONS.includes(input.action as never))
           throw new SafeError('INVALID_ARGUMENTS', `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(', ')}) and accepts no credentials, URLs, payment information or other arguments.`,
-            undefined, { tool: CONNECTION_TOOL, location: Object.keys(input).some(key => key !== 'action') ? '/' : '/action' });
+            undefined, { tool: CONNECTION_TOOL, location: extra ? '/' : '/action' });
         if (input.action === 'open_credits_page') value = await openCreditsPage(browser);
         else {
           value = input.action === 'connect' ? await auth.connect() : await auth.disconnect();
