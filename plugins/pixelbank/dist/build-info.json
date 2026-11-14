@@ -11,8 +11,8 @@
     "proper-lockfile": "4.1.2",
     "zod": "4.6.7"
   },
-  "bundleSha256": "a4183361f47fa2e3aeaa8d98ca033b4cf68ccf2c317cf196c919032efcda9569",
-  "contractsSha256": "b25878c41ceef3a811ab92ccf6fb65dd4bcd06001659508327c6ecd7dcd34a61",
+  "bundleSha256": "576bf2499a529d433d60fa949c7fe6c28eea329a5236bf08d5c280295e6ade36",
+  "contractsSha256": "42fd8dab9d6863f1187aa0da170f0f5176312ff527673c2de0d6e0f2e03710e7",
   "inputs": [
     "../../node_modules/@modelcontextprotocol/client/dist/ajvProvider-BIwGVY6G.mjs",
     "../../node_modules/@modelcontextprotocol/client/dist/chunk-DYPzFuB5.mjs",

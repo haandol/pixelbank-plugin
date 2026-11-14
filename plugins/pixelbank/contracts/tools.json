@@ -1,7 +1,133 @@
 {
   "availability": "Use the authenticated tools/list response for actual availability and granted authority.",
+  "input_schema_budget_bytes": 4500,
+  "input_schema_bytes": {
+    "pixelbank_delete": 1369,
+    "pixelbank_edit": 3687,
+    "pixelbank_edit_workflow": 3284,
+    "pixelbank_execute_workflow": 914,
+    "pixelbank_generate": 3580,
+    "pixelbank_get_workflow_status": 202,
+    "pixelbank_get_workspace": 122,
+    "pixelbank_issue_upload": 576,
+    "pixelbank_process_image": 3990,
+    "pixelbank_read": 3242,
+    "pixelbank_read_workflow": 1925,
+    "pixelbank_save_source": 606
+  },
   "schema_version": 1,
   "tools": [
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Permanently delete exactly one owned image, animation or workflow run, only after the creator explicitly asked; confirmed must be true. Actions: delete_asset, delete_animation, delete_workflow. Set action and pass its arguments in the object named after it.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "delete_asset",
+              "delete_animation",
+              "delete_workflow"
+            ],
+            "type": "string"
+          },
+          "delete_animation": {
+            "additionalProperties": false,
+            "description": "Delete the exact owned animation only after the creator explicitly requests deletion.",
+            "properties": {
+              "confirmed": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "confirmed"
+            ],
+            "type": "object"
+          },
+          "delete_asset": {
+            "additionalProperties": false,
+            "description": "Delete the exact owned image only when the creator explicitly requested deletion. This affects the global library.",
+            "properties": {
+              "asset": {
+                "additionalProperties": false,
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "namespace": {
+                    "enum": [
+                      "workflow",
+                      "background",
+                      "segmentation",
+                      "generation",
+                      "upscaling"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "namespace",
+                  "filename"
+                ],
+                "type": "object"
+              },
+              "confirmed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "asset",
+              "confirmed"
+            ],
+            "type": "object"
+          },
+          "delete_workflow": {
+            "additionalProperties": false,
+            "description": "Delete the exact owned workflow and its private history only when the creator explicitly requested deletion; normal library results survive.",
+            "properties": {
+              "confirmed": {
+                "type": "boolean"
+              },
+              "run_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "enum": [
+                    ".",
+                    ".."
+                  ]
+                },
+                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "confirmed",
+              "run_id"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_delete",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
     {
       "annotations": {
         "destructiveHint": false,
@@ -9,35 +135,419 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Submit one frame correction using its reviewed content revision and instruction; poll the returned job.",
+      "description": "Change owned library items without processing or charges: prepare a web workspace, set tags, save a prepared cutout or recompose a saved GIF. Actions: prepare_workspace, update_asset_tags, save_cutout, recompose_animation, update_animation_tags. Set action and pass its arguments in the object named after it.",
       "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_credits": {
-            "type": "integer"
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "paid_fallback_credits": {
-            "type": "integer"
-          },
-          "request": {
+        "$defs": {
+          "asset": {
             "additionalProperties": false,
             "properties": {
-              "animation_id": {
+              "filename": {
                 "type": "string"
               },
-              "correction": {
+              "namespace": {
+                "enum": [
+                  "workflow",
+                  "background",
+                  "segmentation",
+                  "generation",
+                  "upscaling"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "namespace",
+              "filename"
+            ],
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "prepare_workspace",
+              "update_asset_tags",
+              "save_cutout",
+              "recompose_animation",
+              "update_animation_tags"
+            ],
+            "type": "string"
+          },
+          "prepare_workspace": {
+            "additionalProperties": false,
+            "description": "Prepare owned images, layer settings and a prompt for visual editing in Pixelbank. No image processing or workflow transition starts.",
+            "properties": {
+              "canvas": {
+                "additionalProperties": false,
+                "properties": {
+                  "framing": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "asset": {
+                      "$ref": "#/$defs/asset"
+                    },
+                    "height_percent": {
+                      "type": [
+                        "null",
+                        "number"
+                      ]
+                    },
+                    "locked": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "rotation_degrees": {
+                      "type": [
+                        "null",
+                        "number"
+                      ]
+                    },
+                    "visible": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    },
+                    "width_percent": {
+                      "type": [
+                        "null",
+                        "number"
+                      ]
+                    },
+                    "x_percent": {
+                      "type": [
+                        "null",
+                        "number"
+                      ]
+                    },
+                    "y_percent": {
+                      "type": [
+                        "null",
+                        "number"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "asset"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "operation_key": {
+                "type": "string"
+              },
+              "prompt": {
+                "type": "string"
+              },
+              "tool": {
+                "enum": [
+                  "segment",
+                  "generation"
+                ],
+                "type": "string"
+              },
+              "workflow": {
+                "additionalProperties": false,
+                "properties": {
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "run_id": {
+                    "type": "string"
+                  },
+                  "step_key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "run_id",
+                  "step_key",
+                  "revision"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              }
+            },
+            "required": [
+              "operation_key",
+              "tool",
+              "layers"
+            ],
+            "type": "object"
+          },
+          "recompose_animation": {
+            "additionalProperties": false,
+            "description": "Recompose the saved GIF from enabled frames for free. Supply the reviewed content revision.",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "request": {
                 "additionalProperties": false,
                 "properties": {
                   "content_revision": {
                     "type": "string"
                   },
-                  "prompt": {
+                  "disabled_indices": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  }
+                },
+                "required": [
+                  "disabled_indices"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "request"
+            ],
+            "type": "object"
+          },
+          "save_cutout": {
+            "additionalProperties": false,
+            "description": "Save an already prepared transparent cutout using a segmentation-cutout upload. This does not run SAM or consume credits.",
+            "properties": {
+              "image": {
+                "additionalProperties": false,
+                "properties": {
+                  "checksum_sha256": {
                     "type": "string"
                   },
-                  "reference": {
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "height": {
+                    "type": "integer"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "enum": [
+                      "workflow-input",
+                      "generation-base",
+                      "generation-guide",
+                      "generation-mask",
+                      "generation-object",
+                      "upscaling-input",
+                      "segmentation-input",
+                      "segmentation-cutout",
+                      "background-removal-input",
+                      "animation-start",
+                      "animation-end",
+                      "animation-reference"
+                    ],
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "type": "integer"
+                  },
+                  "width": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "key",
+                  "purpose",
+                  "content_type",
+                  "size_bytes",
+                  "checksum_sha256",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          },
+          "update_animation_tags": {
+            "additionalProperties": false,
+            "description": "Update tags on the selected owned animation.",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "request": {
+                "additionalProperties": false,
+                "properties": {
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  }
+                },
+                "required": [
+                  "tags"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "request"
+            ],
+            "type": "object"
+          },
+          "update_asset_tags": {
+            "additionalProperties": false,
+            "description": "Update tags on the explicitly selected owned image.",
+            "properties": {
+              "asset": {
+                "$ref": "#/$defs/asset"
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "asset",
+              "tags"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_edit",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Create a saved workflow, supply inputs or apply an allowed change at the acknowledged revision, or import an upload. No processing or charge. Actions: create_workflow, update_workflow, import_workflow_source. Set action and pass its arguments in the object named after it.",
+      "inputSchema": {
+        "$defs": {
+          "identity": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "create_workflow",
+              "update_workflow",
+              "import_workflow_source"
+            ],
+            "type": "string"
+          },
+          "create_workflow": {
+            "additionalProperties": false,
+            "description": "Create a saved workflow from a supported definition; this does not start processing.",
+            "properties": {
+              "definition_key": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "enum": [
+                    ".",
+                    "..",
+                    "space",
+                    "previsualization",
+                    "video",
+                    "video-generation",
+                    "previs",
+                    "animation"
+                  ]
+                },
+                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+                "type": "string"
+              },
+              "operation_key": {
+                "$ref": "#/$defs/identity"
+              }
+            },
+            "required": [
+              "definition_key",
+              "operation_key"
+            ],
+            "type": "object"
+          },
+          "import_workflow_source": {
+            "additionalProperties": false,
+            "description": "Attach a workflow-input upload reference to the selected input step. Preserve the complete upload reference.",
+            "properties": {
+              "request": {
+                "additionalProperties": false,
+                "properties": {
+                  "action_id": {
+                    "$ref": "#/$defs/identity"
+                  },
+                  "image": {
                     "additionalProperties": false,
                     "properties": {
                       "checksum_sha256": {
@@ -85,318 +595,66 @@
                       "width",
                       "height"
                     ],
-                    "type": [
-                      "null",
-                      "object"
-                    ]
+                    "type": "object"
+                  },
+                  "input": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "step_key": {
+                    "$ref": "#/$defs/identity"
                   }
                 },
                 "required": [
-                  "prompt",
-                  "content_revision"
+                  "action_id",
+                  "revision",
+                  "step_key",
+                  "image"
                 ],
                 "type": "object"
               },
-              "frame_index": {
-                "type": "integer"
+              "run_id": {
+                "$ref": "#/$defs/identity"
               }
             },
             "required": [
-              "animation_id",
-              "frame_index",
-              "correction"
+              "request",
+              "run_id"
             ],
             "type": "object"
           },
-          "workflow": {
+          "update_workflow": {
             "additionalProperties": false,
+            "description": "Supply an input or apply an allowed legacy change at the acknowledged revision. Running automatic inputs cannot change.",
             "properties": {
-              "run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "run_id",
-              "step_key"
-            ],
-            "type": [
-              "null",
-              "object"
-            ]
-          }
-        },
-        "required": [
-          "request",
-          "operation_key",
-          "maximum_credits"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_correct_animation_frame",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Create a saved workflow from a supported definition; this does not start processing.",
-      "inputSchema": {
-        "$defs": {
-          "WorkflowSource": {
-            "additionalProperties": false,
-            "properties": {
-              "asset": {
+              "change": {
                 "additionalProperties": false,
-                "properties": {
-                  "filename": {
-                    "type": "string"
+                "else": {
+                  "properties": {
+                    "step_key": {
+                      "$ref": "#/$defs/identity"
+                    }
                   },
-                  "namespace": {
-                    "enum": [
-                      "workflow",
-                      "background",
-                      "segmentation",
-                      "generation",
-                      "upscaling"
-                    ],
-                    "type": "string"
+                  "required": [
+                    "step_key"
+                  ]
+                },
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "reopen"
+                      ]
+                    }
                   }
                 },
-                "required": [
-                  "namespace",
-                  "filename"
-                ],
-                "type": [
-                  "null",
-                  "object"
-                ]
-              },
-              "asset_id": {
-                "type": "string"
-              },
-              "hash": {
-                "type": "string"
-              },
-              "kind": {
-                "type": "string"
-              },
-              "metadata": true,
-              "name": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string"
-              },
-              "sources": {
-                "items": {
-                  "$ref": "#/$defs/WorkflowSource"
-                },
-                "type": [
-                  "null",
-                  "array"
-                ]
-              },
-              "step_key": {
-                "type": "string"
-              },
-              "step_revision": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "name",
-              "kind",
-              "step_key",
-              "step_revision"
-            ],
-            "type": "object"
-          }
-        },
-        "additionalProperties": false,
-        "properties": {
-          "definition_key": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                "..",
-                "space",
-                "previsualization",
-                "video",
-                "video-generation",
-                "previs",
-                "animation"
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          },
-          "operation_key": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "definition_key",
-          "operation_key"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_create_workflow",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Delete the exact owned animation only after the creator explicitly requests deletion.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "confirmed": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "confirmed"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_delete_animation",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Delete the exact owned image only when the creator explicitly requested deletion. This affects the global library.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "asset": {
-            "additionalProperties": false,
-            "properties": {
-              "filename": {
-                "type": "string"
-              },
-              "namespace": {
-                "enum": [
-                  "workflow",
-                  "background",
-                  "segmentation",
-                  "generation",
-                  "upscaling"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "namespace",
-              "filename"
-            ],
-            "type": "object"
-          },
-          "confirmed": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "asset",
-          "confirmed"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_delete_asset",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Delete the explicitly selected owned workflow and its private history; normal library results survive.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "run_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "run_id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_delete_workflow",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision, quote_id and max_credits. One workflow charge includes up to three total attempts; tool free uses do not apply. The server completes all declared steps and saves library results; poll status without further writes.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "request": {
-            "$defs": {
-              "WorkflowSource": {
-                "additionalProperties": false,
                 "properties": {
+                  "action_id": {
+                    "$ref": "#/$defs/identity"
+                  },
                   "asset": {
                     "additionalProperties": false,
                     "properties": {
@@ -426,57 +684,119 @@
                   "asset_id": {
                     "type": "string"
                   },
-                  "hash": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "input": {
+                    "type": "string"
+                  },
+                  "inspection_id": {
+                    "type": "string"
+                  },
+                  "instructions": {
                     "type": "string"
                   },
                   "kind": {
+                    "enum": [
+                      "activate",
+                      "attach",
+                      "select",
+                      "detach",
+                      "next",
+                      "skip",
+                      "complete",
+                      "reopen",
+                      "set_instructions",
+                      "confirm_metadata"
+                    ],
                     "type": "string"
                   },
                   "metadata": true,
-                  "name": {
+                  "preset": {
                     "type": "string"
                   },
-                  "role": {
+                  "reason": {
                     "type": "string"
                   },
-                  "sources": {
-                    "items": {
-                      "$ref": "#/properties/request/$defs/WorkflowSource"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
+                  "revision": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "source_run_id": {
+                    "type": "string"
                   },
                   "step_key": {
-                    "type": "string"
-                  },
-                  "step_revision": {
-                    "type": "integer"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/identity"
+                      },
+                      {
+                        "enum": [
+                          ""
+                        ]
+                      }
+                    ]
                   }
                 },
                 "required": [
-                  "name",
-                  "kind",
-                  "step_key",
-                  "step_revision"
+                  "action_id",
+                  "revision",
+                  "kind"
                 ],
                 "type": "object"
+              },
+              "run_id": {
+                "$ref": "#/$defs/identity"
               }
             },
+            "required": [
+              "change",
+              "run_id"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_edit_workflow",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision, quote_id and max_credits. One workflow charge includes up to three total attempts; tool free uses do not apply. The server completes all declared steps and saves library results; poll status without further writes.",
+      "inputSchema": {
+        "$defs": {
+          "identity": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "request": {
             "additionalProperties": false,
             "properties": {
               "action_id": {
-                "maxLength": 128,
-                "minLength": 1,
-                "not": {
-                  "enum": [
-                    ".",
-                    ".."
-                  ]
-                },
-                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-                "type": "string"
+                "$ref": "#/$defs/identity"
               },
               "description": {
                 "type": "string"
@@ -518,6 +838,12 @@
               "revision": {
                 "minimum": 1,
                 "type": "integer"
+              },
+              "styles": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
               }
             },
             "required": [
@@ -528,16 +854,7 @@
             "type": "object"
           },
           "run_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
+            "$ref": "#/$defs/identity"
           }
         },
         "required": [
@@ -559,73 +876,126 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Submit an animation using owned uploaded references and a motion prompt; poll the returned job identity.",
+      "description": "Start paid generation: an image, an animation or one animation frame correction. Actions: generate_image, generate_animation, correct_animation_frame. Set action and pass its arguments in the object named after it; operation_key, maximum_credits, paid_fallback_credits and workflow stay top-level. Retain the operation key and approved maximum across retries.",
       "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_credits": {
-            "type": "integer"
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "paid_fallback_credits": {
-            "type": "integer"
-          },
-          "request": {
+        "$defs": {
+          "upload": {
             "additionalProperties": false,
             "properties": {
-              "end_image": {
+              "checksum_sha256": {
+                "type": "string"
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "height": {
+                "type": "integer"
+              },
+              "key": {
+                "type": "string"
+              },
+              "purpose": {
+                "enum": [
+                  "workflow-input",
+                  "generation-base",
+                  "generation-guide",
+                  "generation-mask",
+                  "generation-object",
+                  "upscaling-input",
+                  "segmentation-input",
+                  "segmentation-cutout",
+                  "background-removal-input",
+                  "animation-start",
+                  "animation-end",
+                  "animation-reference"
+                ],
+                "type": "string"
+              },
+              "size_bytes": {
+                "type": "integer"
+              },
+              "width": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "key",
+              "purpose",
+              "content_type",
+              "size_bytes",
+              "checksum_sha256",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "generate_image",
+              "generate_animation",
+              "correct_animation_frame"
+            ],
+            "type": "string"
+          },
+          "correct_animation_frame": {
+            "additionalProperties": false,
+            "description": "Submit one frame correction using its reviewed content revision and instruction; poll the returned job.",
+            "properties": {
+              "animation_id": {
+                "type": "string"
+              },
+              "correction": {
                 "additionalProperties": false,
                 "properties": {
-                  "checksum_sha256": {
+                  "content_revision": {
                     "type": "string"
                   },
-                  "content_type": {
+                  "prompt": {
                     "type": "string"
                   },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
+                  "reference": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/upload"
+                      }
+                    ]
                   }
                 },
                 "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
+                  "prompt",
+                  "content_revision"
                 ],
-                "type": [
-                  "null",
-                  "object"
+                "type": "object"
+              },
+              "frame_index": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "animation_id",
+              "frame_index",
+              "correction"
+            ],
+            "type": "object"
+          },
+          "generate_animation": {
+            "additionalProperties": false,
+            "description": "Submit an animation using owned uploaded references and a motion prompt; poll the returned job identity.",
+            "properties": {
+              "end_image": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/upload"
+                  }
                 ]
               },
               "options": {
@@ -662,54 +1032,7 @@
                 "type": "object"
               },
               "start_image": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
-                  },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
-                ],
-                "type": "object"
+                "$ref": "#/$defs/upload"
               }
             },
             "required": [
@@ -718,165 +1041,23 @@
             ],
             "type": "object"
           },
-          "workflow": {
+          "generate_image": {
             "additionalProperties": false,
-            "properties": {
-              "run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "run_id",
-              "step_key"
-            ],
-            "type": [
-              "null",
-              "object"
-            ]
-          }
-        },
-        "required": [
-          "request",
-          "operation_key",
-          "maximum_credits"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_generate_animation",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Generate from fully prepared images, roles, guides and masks. Prepare the Pixelbank web workspace when layers need visual composition.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_credits": {
-            "type": "integer"
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "paid_fallback_credits": {
-            "type": "integer"
-          },
-          "request": {
-            "additionalProperties": false,
+            "description": "Generate from fully prepared images, roles, guides and masks. Prepare the Pixelbank web workspace when layers need visual composition.",
             "properties": {
               "guide_image": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "type": "null"
                   },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
+                  {
+                    "$ref": "#/$defs/upload"
                   }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
-                ],
-                "type": [
-                  "null",
-                  "object"
                 ]
               },
               "images": {
                 "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "checksum_sha256": {
-                      "type": "string"
-                    },
-                    "content_type": {
-                      "type": "string"
-                    },
-                    "height": {
-                      "type": "integer"
-                    },
-                    "key": {
-                      "type": "string"
-                    },
-                    "purpose": {
-                      "enum": [
-                        "workflow-input",
-                        "generation-base",
-                        "generation-guide",
-                        "generation-mask",
-                        "generation-object",
-                        "upscaling-input",
-                        "segmentation-input",
-                        "segmentation-cutout",
-                        "background-removal-input",
-                        "animation-start",
-                        "animation-end",
-                        "animation-reference"
-                      ],
-                      "type": "string"
-                    },
-                    "size_bytes": {
-                      "type": "integer"
-                    },
-                    "width": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "purpose",
-                    "content_type",
-                    "size_bytes",
-                    "checksum_sha256",
-                    "width",
-                    "height"
-                  ],
-                  "type": "object"
+                  "$ref": "#/$defs/upload"
                 },
                 "type": [
                   "null",
@@ -884,56 +1065,13 @@
                 ]
               },
               "mask_image": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "type": "null"
                   },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
+                  {
+                    "$ref": "#/$defs/upload"
                   }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
-                ],
-                "type": [
-                  "null",
-                  "object"
                 ]
               },
               "options": {
@@ -1038,6 +1176,15 @@
             ],
             "type": "object"
           },
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
           "workflow": {
             "additionalProperties": false,
             "properties": {
@@ -1059,194 +1206,13 @@
           }
         },
         "required": [
-          "request",
+          "action",
           "operation_key",
           "maximum_credits"
         ],
         "type": "object"
       },
-      "name": "pixelbank_generate_image",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read display information, credits and available free uses for the connected Pixelbank account.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "type": "object"
-      },
-      "name": "pixelbank_get_account",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read an owned animation, current content revision, frames and download references.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_get_animation",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read an owned image's dimensions, provenance, resized preview and original download reference.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "filename": {
-            "type": "string"
-          },
-          "namespace": {
-            "enum": [
-              "workflow",
-              "background",
-              "segmentation",
-              "generation",
-              "upscaling"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "namespace",
-          "filename"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_get_asset",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read an owned image-generation, animation or upscaling job and its actual result or failure.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "job_id": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "job_id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_get_job",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read the saved workflow, source references and library results. Acceptance is not completion.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "run_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "run_id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_get_workflow",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read the saved history of a supported owned workflow.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "run_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "run_id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_get_workflow_activity",
+      "name": "pixelbank_generate",
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"
@@ -1320,206 +1286,6 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Attach a workflow-input upload reference to the selected input step. Preserve the complete upload reference.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "request": {
-            "$defs": {
-              "WorkflowSource": {
-                "additionalProperties": false,
-                "properties": {
-                  "asset": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "filename": {
-                        "type": "string"
-                      },
-                      "namespace": {
-                        "enum": [
-                          "workflow",
-                          "background",
-                          "segmentation",
-                          "generation",
-                          "upscaling"
-                        ],
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "namespace",
-                      "filename"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ]
-                  },
-                  "asset_id": {
-                    "type": "string"
-                  },
-                  "hash": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "type": "string"
-                  },
-                  "metadata": true,
-                  "name": {
-                    "type": "string"
-                  },
-                  "role": {
-                    "type": "string"
-                  },
-                  "sources": {
-                    "items": {
-                      "$ref": "#/properties/request/$defs/WorkflowSource"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "step_key": {
-                    "type": "string"
-                  },
-                  "step_revision": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "name",
-                  "kind",
-                  "step_key",
-                  "step_revision"
-                ],
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "action_id": {
-                "maxLength": 128,
-                "minLength": 1,
-                "not": {
-                  "enum": [
-                    ".",
-                    ".."
-                  ]
-                },
-                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-                "type": "string"
-              },
-              "image": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
-                  },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
-                ],
-                "type": "object"
-              },
-              "input": {
-                "type": "string"
-              },
-              "revision": {
-                "minimum": 1,
-                "type": "integer"
-              },
-              "step_key": {
-                "maxLength": 128,
-                "minLength": 1,
-                "not": {
-                  "enum": [
-                    ".",
-                    ".."
-                  ]
-                },
-                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-                "type": "string"
-              }
-            },
-            "required": [
-              "action_id",
-              "revision",
-              "step_key",
-              "image"
-            ],
-            "type": "object"
-          },
-          "run_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "request",
-          "run_id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_import_workflow_source",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
       "description": "Issue a purpose-bound direct image upload. The local upload helper consumes this ticket without putting credentials in the conversation.",
       "inputSchema": {
         "additionalProperties": false,
@@ -1578,809 +1344,143 @@
         "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read active animation jobs, including frame corrections. Acceptance is not completion.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "type": "object"
-      },
-      "name": "pixelbank_list_animation_jobs",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Browse owned saved animations with cursor pagination.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "name": "pixelbank_list_animations",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Browse one owned image-library namespace with cursor pagination and an optional tag filter.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer"
-          },
-          "namespace": {
-            "enum": [
-              "workflow",
-              "background",
-              "segmentation",
-              "generation",
-              "upscaling"
-            ],
-            "type": "string"
-          },
-          "tag": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "namespace"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_list_assets",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Discover supported workflow definitions and their required inputs before creating a run.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      },
-      "name": "pixelbank_list_workflow_definitions",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "List supported saved workflows and definitions. Optional paging retains continuation metadata.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "maxLength": 512,
-            "type": "string"
-          },
-          "limit": {
-            "maximum": 50,
-            "minimum": 0,
-            "type": "integer"
-          },
-          "status": {
-            "enum": [
-              "active",
-              "completed",
-              "failed"
-            ],
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "name": "pixelbank_list_workflows",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Prepare owned images, layer settings and a prompt for visual editing in Pixelbank. No image processing or workflow transition starts.",
+      "description": "Start paid processing of one image: background removal, segmentation, segmentation with save or upscaling. Actions: remove_background, segment, segment_and_save, upscale_image. Set action and pass its arguments in the object named after it; operation_key, maximum_credits, paid_fallback_credits and workflow stay top-level. Retain the operation key and approved maximum across retries.",
       "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "canvas": {
+        "$defs": {
+          "asset": {
             "additionalProperties": false,
             "properties": {
-              "framing": {
+              "filename": {
                 "type": "string"
               },
-              "height": {
-                "type": "integer"
-              },
-              "width": {
-                "type": "integer"
+              "namespace": {
+                "enum": [
+                  "generation",
+                  "background",
+                  "segmentation",
+                  "upscaling"
+                ],
+                "type": "string"
               }
             },
             "required": [
-              "width",
-              "height"
+              "namespace",
+              "filename"
             ],
             "type": [
               "null",
               "object"
             ]
           },
-          "layers": {
-            "items": {
-              "additionalProperties": false,
-              "properties": {
-                "asset": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "filename": {
-                      "type": "string"
-                    },
-                    "namespace": {
-                      "enum": [
-                        "workflow",
-                        "background",
-                        "segmentation",
-                        "generation",
-                        "upscaling"
-                      ],
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "namespace",
-                    "filename"
-                  ],
-                  "type": "object"
-                },
-                "height_percent": {
-                  "type": [
-                    "null",
-                    "number"
-                  ]
-                },
-                "locked": {
-                  "type": [
-                    "null",
-                    "boolean"
-                  ]
-                },
-                "name": {
-                  "type": "string"
-                },
-                "role": {
-                  "type": "string"
-                },
-                "rotation_degrees": {
-                  "type": [
-                    "null",
-                    "number"
-                  ]
-                },
-                "visible": {
-                  "type": [
-                    "null",
-                    "boolean"
-                  ]
-                },
-                "width_percent": {
-                  "type": [
-                    "null",
-                    "number"
-                  ]
-                },
-                "x_percent": {
-                  "type": [
-                    "null",
-                    "number"
-                  ]
-                },
-                "y_percent": {
-                  "type": [
-                    "null",
-                    "number"
-                  ]
-                }
-              },
-              "required": [
-                "asset"
-              ],
-              "type": "object"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "prompt": {
-            "type": "string"
-          },
-          "tool": {
-            "enum": [
-              "segment",
-              "generation"
-            ],
-            "type": "string"
-          },
-          "workflow": {
+          "segment": {
             "additionalProperties": false,
             "properties": {
-              "revision": {
-                "type": "integer"
+              "image": {
+                "$ref": "#/$defs/upload"
               },
-              "run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "run_id",
-              "step_key",
-              "revision"
-            ],
-            "type": [
-              "null",
-              "object"
-            ]
-          }
-        },
-        "required": [
-          "operation_key",
-          "tool",
-          "layers"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_prepare_workspace",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Read the current enlargement dimensions, credit amount and quote fingerprint without starting work.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "factor": {
-            "type": "integer"
-          },
-          "mode": {
-            "type": "string"
-          },
-          "source": {
-            "additionalProperties": false,
-            "oneOf": [
-              {
-                "properties": {
-                  "asset": {
-                    "type": "null"
-                  },
-                  "upload": {
-                    "type": "object"
-                  }
-                },
-                "required": [
-                  "upload"
-                ]
-              },
-              {
-                "properties": {
-                  "asset": {
-                    "type": "object"
-                  },
-                  "original_asset": {
-                    "type": "null"
-                  },
-                  "upload": {
-                    "type": "null"
-                  }
-                },
-                "required": [
-                  "asset"
-                ]
-              }
-            ],
-            "properties": {
-              "asset": {
+              "selection": {
                 "additionalProperties": false,
                 "properties": {
-                  "filename": {
-                    "type": "string"
-                  },
-                  "namespace": {
-                    "enum": [
-                      "generation",
-                      "background",
-                      "segmentation",
-                      "upscaling"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "namespace",
-                  "filename"
-                ],
-                "type": [
-                  "null",
-                  "object"
-                ]
-              },
-              "original_asset": {
-                "additionalProperties": false,
-                "properties": {
-                  "filename": {
-                    "type": "string"
-                  },
-                  "namespace": {
-                    "enum": [
-                      "generation",
-                      "background",
-                      "segmentation",
-                      "upscaling"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "namespace",
-                  "filename"
-                ],
-                "type": [
-                  "null",
-                  "object"
-                ]
-              },
-              "upload": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
-                  },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
-                ],
-                "type": [
-                  "null",
-                  "object"
-                ]
-              }
-            },
-            "type": "object"
-          }
-        },
-        "required": [
-          "mode",
-          "source",
-          "factor"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_quote_upscaling",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": true
-      },
-      "description": "Quote the finite automatic plan before authorization. This starts no processing.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "request": {
-            "$defs": {
-              "WorkflowSource": {
-                "additionalProperties": false,
-                "properties": {
-                  "asset": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "filename": {
-                        "type": "string"
-                      },
-                      "namespace": {
-                        "enum": [
-                          "workflow",
-                          "background",
-                          "segmentation",
-                          "generation",
-                          "upscaling"
-                        ],
-                        "type": "string"
-                      }
+                  "image": {
+                    "additionalProperties": {
+                      "type": "integer"
                     },
-                    "required": [
-                      "namespace",
-                      "filename"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ]
+                    "type": "object"
                   },
-                  "asset_id": {
-                    "type": "string"
-                  },
-                  "hash": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "type": "string"
-                  },
-                  "metadata": true,
-                  "name": {
-                    "type": "string"
-                  },
-                  "role": {
-                    "type": "string"
-                  },
-                  "sources": {
+                  "inverted_segment_ids": {
                     "items": {
-                      "$ref": "#/properties/request/$defs/WorkflowSource"
+                      "type": "integer"
                     },
                     "type": [
                       "null",
                       "array"
                     ]
                   },
-                  "step_key": {
-                    "type": "string"
+                  "points": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "label": {
+                          "type": "integer"
+                        },
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "label"
+                      ],
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
                   },
-                  "step_revision": {
-                    "type": "integer"
+                  "rectangles": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "height": {
+                          "type": "number"
+                        },
+                        "width": {
+                          "type": "number"
+                        },
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "width",
+                        "height"
+                      ],
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "selected_segment_ids": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
                   }
                 },
                 "required": [
-                  "name",
-                  "kind",
-                  "step_key",
-                  "step_revision"
-                ],
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "action_id": {
-                "type": "string"
-              },
-              "description": {
-                "type": "string"
-              },
-              "instructions": {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              "max_credits": {
-                "type": "integer"
-              },
-              "options": {
-                "additionalProperties": {
-                  "type": "boolean"
-                },
-                "type": "object"
-              },
-              "presets": {
-                "additionalProperties": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
-                "type": "object"
-              },
-              "quote_id": {
-                "type": "string"
-              },
-              "repeat": {
-                "type": "boolean"
-              },
-              "revision": {
-                "type": "integer"
-              }
-            },
-            "type": "object"
-          },
-          "run_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "run_id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_quote_workflow",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Recompose the saved GIF from enabled frames for free. Supply the reviewed content revision.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "request": {
-            "additionalProperties": false,
-            "properties": {
-              "content_revision": {
-                "type": "string"
-              },
-              "disabled_indices": {
-                "items": {
-                  "type": "integer"
-                },
-                "type": [
-                  "null",
-                  "array"
-                ]
-              }
-            },
-            "required": [
-              "disabled_indices"
-            ],
-            "type": "object"
-          }
-        },
-        "required": [
-          "id",
-          "request"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_recompose_animation",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Remove an image background and save the transparent result. Use the background-removal-input upload purpose. Retain the operation key and approved maximum credits.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_credits": {
-            "type": "integer"
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "paid_fallback_credits": {
-            "type": "integer"
-          },
-          "request": {
-            "additionalProperties": false,
-            "properties": {
-              "image": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
-                  },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
+                  "image",
+                  "points",
+                  "rectangles",
+                  "selected_segment_ids",
+                  "inverted_segment_ids"
                 ],
                 "type": "object"
               }
             },
             "required": [
-              "image"
+              "image",
+              "selection"
             ],
             "type": "object"
           },
-          "workflow": {
-            "additionalProperties": false,
-            "properties": {
-              "run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "run_id",
-              "step_key"
-            ],
-            "type": [
-              "null",
-              "object"
-            ]
-          }
-        },
-        "required": [
-          "request",
-          "operation_key",
-          "maximum_credits"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_remove_background",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Save an already prepared transparent cutout using a segmentation-cutout upload. This does not run SAM or consume credits.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "image": {
+          "upload": {
             "additionalProperties": false,
             "properties": {
               "checksum_sha256": {
@@ -2431,12 +1531,599 @@
             "type": "object"
           }
         },
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "remove_background",
+              "segment",
+              "segment_and_save",
+              "upscale_image"
+            ],
+            "type": "string"
+          },
+          "maximum_credits": {
+            "type": "integer"
+          },
+          "operation_key": {
+            "type": "string"
+          },
+          "paid_fallback_credits": {
+            "type": "integer"
+          },
+          "remove_background": {
+            "additionalProperties": false,
+            "description": "Remove an image background and save the transparent result. Use the background-removal-input upload purpose. Retain the operation key and approved maximum credits.",
+            "properties": {
+              "image": {
+                "$ref": "#/$defs/upload"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          },
+          "segment": {
+            "$ref": "#/$defs/segment",
+            "description": "Run SAM rectangles in original image pixels (x, y, width, height); points must be empty. Use a segmentation-input upload. Use the prepared web workspace for interactive mask refinement."
+          },
+          "segment_and_save": {
+            "$ref": "#/$defs/segment",
+            "description": "Run SAM rectangles in original image pixels (x, y, width, height) and save the cutout. Use a segmentation-input upload and an empty points list."
+          },
+          "upscale_image": {
+            "additionalProperties": false,
+            "description": "Submit an image enlargement with the exact confirmed quote and an approved credit maximum.",
+            "properties": {
+              "factor": {
+                "type": "integer"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "quote": {
+                "additionalProperties": false,
+                "properties": {
+                  "credit_cost": {
+                    "type": "integer"
+                  },
+                  "fingerprint": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "fingerprint",
+                  "credit_cost"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "additionalProperties": false,
+                "oneOf": [
+                  {
+                    "properties": {
+                      "asset": {
+                        "type": "null"
+                      },
+                      "upload": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "upload"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "asset": {
+                        "type": "object"
+                      },
+                      "original_asset": {
+                        "type": "null"
+                      },
+                      "upload": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "asset"
+                    ]
+                  }
+                ],
+                "properties": {
+                  "asset": {
+                    "$ref": "#/$defs/asset"
+                  },
+                  "original_asset": {
+                    "$ref": "#/$defs/asset"
+                  },
+                  "upload": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/upload"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "mode",
+              "source",
+              "factor",
+              "quote"
+            ],
+            "type": "object"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "step_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "step_key"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
         "required": [
-          "image"
+          "action",
+          "operation_key",
+          "maximum_credits"
         ],
         "type": "object"
       },
-      "name": "pixelbank_save_cutout",
+      "name": "pixelbank_process_image",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read the connected account, owned images, animations, jobs and upscaling quotes. Nothing is changed, charged or counted. Actions: get_account, list_assets, get_asset, quote_upscaling, get_job, list_animations, get_animation, list_animation_jobs. Set action and pass its arguments in the object named after it. get_account takes no object: Read display information, credits and available free uses for the connected Pixelbank account. list_animation_jobs takes no object: Read active animation jobs, including frame corrections. Acceptance is not completion.",
+      "inputSchema": {
+        "$defs": {
+          "asset": {
+            "additionalProperties": false,
+            "properties": {
+              "filename": {
+                "type": "string"
+              },
+              "namespace": {
+                "enum": [
+                  "generation",
+                  "background",
+                  "segmentation",
+                  "upscaling"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "namespace",
+              "filename"
+            ],
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "get_account",
+              "list_assets",
+              "get_asset",
+              "quote_upscaling",
+              "get_job",
+              "list_animations",
+              "get_animation",
+              "list_animation_jobs"
+            ],
+            "type": "string"
+          },
+          "get_animation": {
+            "additionalProperties": false,
+            "description": "Read an owned animation, current content revision, frames and download references.",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "get_asset": {
+            "additionalProperties": false,
+            "description": "Read an owned image's dimensions, provenance, resized preview and original download reference.",
+            "properties": {
+              "filename": {
+                "type": "string"
+              },
+              "namespace": {
+                "enum": [
+                  "workflow",
+                  "background",
+                  "segmentation",
+                  "generation",
+                  "upscaling"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "namespace",
+              "filename"
+            ],
+            "type": "object"
+          },
+          "get_job": {
+            "additionalProperties": false,
+            "description": "Read an owned image-generation, animation or upscaling job and its actual result or failure.",
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "generation",
+                  "animation",
+                  "upscaling"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "job_id"
+            ],
+            "type": "object"
+          },
+          "list_animations": {
+            "additionalProperties": false,
+            "description": "Browse owned saved animations with cursor pagination.",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "list_assets": {
+            "additionalProperties": false,
+            "description": "Browse one owned image-library namespace with cursor pagination and an optional tag filter.",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "namespace": {
+                "enum": [
+                  "workflow",
+                  "background",
+                  "segmentation",
+                  "generation",
+                  "upscaling"
+                ],
+                "type": "string"
+              },
+              "tag": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "namespace"
+            ],
+            "type": "object"
+          },
+          "quote_upscaling": {
+            "additionalProperties": false,
+            "description": "Read the current enlargement dimensions, credit amount and quote fingerprint without starting work.",
+            "properties": {
+              "factor": {
+                "type": "integer"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "source": {
+                "additionalProperties": false,
+                "oneOf": [
+                  {
+                    "properties": {
+                      "asset": {
+                        "type": "null"
+                      },
+                      "upload": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "upload"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "asset": {
+                        "type": "object"
+                      },
+                      "original_asset": {
+                        "type": "null"
+                      },
+                      "upload": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "asset"
+                    ]
+                  }
+                ],
+                "properties": {
+                  "asset": {
+                    "$ref": "#/$defs/asset"
+                  },
+                  "original_asset": {
+                    "$ref": "#/$defs/asset"
+                  },
+                  "upload": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "checksum_sha256": {
+                        "type": "string"
+                      },
+                      "content_type": {
+                        "type": "string"
+                      },
+                      "height": {
+                        "type": "integer"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "purpose": {
+                        "enum": [
+                          "workflow-input",
+                          "generation-base",
+                          "generation-guide",
+                          "generation-mask",
+                          "generation-object",
+                          "upscaling-input",
+                          "segmentation-input",
+                          "segmentation-cutout",
+                          "background-removal-input",
+                          "animation-start",
+                          "animation-end",
+                          "animation-reference"
+                        ],
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "type": "integer"
+                      },
+                      "width": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "purpose",
+                      "content_type",
+                      "size_bytes",
+                      "checksum_sha256",
+                      "width",
+                      "height"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "mode",
+              "source",
+              "factor"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_read",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read supported workflow definitions, saved runs, their history and automatic-plan quotes. Starts no processing. Actions: list_workflow_definitions, list_workflows, get_workflow, get_workflow_activity, quote_workflow. Set action and pass its arguments in the object named after it. list_workflow_definitions takes no object: Discover supported workflow definitions and their required inputs before creating a run.",
+      "inputSchema": {
+        "$defs": {
+          "get_workflow": {
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "$ref": "#/$defs/identity"
+              }
+            },
+            "required": [
+              "run_id"
+            ],
+            "type": "object"
+          },
+          "identity": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "enum": [
+                ".",
+                ".."
+              ]
+            },
+            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "list_workflow_definitions",
+              "list_workflows",
+              "get_workflow",
+              "get_workflow_activity",
+              "quote_workflow"
+            ],
+            "type": "string"
+          },
+          "get_workflow": {
+            "$ref": "#/$defs/get_workflow",
+            "description": "Read the saved workflow, source references and library results. Acceptance is not completion."
+          },
+          "get_workflow_activity": {
+            "$ref": "#/$defs/get_workflow",
+            "description": "Read the saved history of a supported owned workflow."
+          },
+          "list_workflows": {
+            "additionalProperties": false,
+            "description": "List supported saved workflows and definitions. Optional paging retains continuation metadata.",
+            "properties": {
+              "cursor": {
+                "maxLength": 512,
+                "type": "string"
+              },
+              "limit": {
+                "maximum": 50,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "status": {
+                "enum": [
+                  "active",
+                  "completed",
+                  "failed"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "quote_workflow": {
+            "additionalProperties": false,
+            "description": "Quote the finite automatic plan before authorization. This starts no processing.",
+            "properties": {
+              "request": {
+                "additionalProperties": false,
+                "properties": {
+                  "action_id": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "instructions": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "max_credits": {
+                    "type": "integer"
+                  },
+                  "options": {
+                    "additionalProperties": {
+                      "type": "boolean"
+                    },
+                    "type": "object"
+                  },
+                  "presets": {
+                    "additionalProperties": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": [
+                        "null",
+                        "array"
+                      ]
+                    },
+                    "type": "object"
+                  },
+                  "quote_id": {
+                    "type": "string"
+                  },
+                  "repeat": {
+                    "type": "boolean"
+                  },
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "styles": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              },
+              "run_id": {
+                "$ref": "#/$defs/identity"
+              }
+            },
+            "required": [
+              "run_id"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "name": "pixelbank_read_workflow",
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"
@@ -2501,992 +2188,6 @@
         "type": "object"
       },
       "name": "pixelbank_save_source",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Run SAM rectangles in original image pixels (x, y, width, height); points must be empty. Use a segmentation-input upload. Use the prepared web workspace for interactive mask refinement.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_credits": {
-            "type": "integer"
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "paid_fallback_credits": {
-            "type": "integer"
-          },
-          "request": {
-            "additionalProperties": false,
-            "properties": {
-              "image": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
-                  },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
-                ],
-                "type": "object"
-              },
-              "selection": {
-                "additionalProperties": false,
-                "properties": {
-                  "image": {
-                    "additionalProperties": {
-                      "type": "integer"
-                    },
-                    "type": "object"
-                  },
-                  "inverted_segment_ids": {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "points": {
-                    "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "label": {
-                          "type": "integer"
-                        },
-                        "x": {
-                          "type": "number"
-                        },
-                        "y": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "x",
-                        "y",
-                        "label"
-                      ],
-                      "type": "object"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "rectangles": {
-                    "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "height": {
-                          "type": "number"
-                        },
-                        "width": {
-                          "type": "number"
-                        },
-                        "x": {
-                          "type": "number"
-                        },
-                        "y": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "x",
-                        "y",
-                        "width",
-                        "height"
-                      ],
-                      "type": "object"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "selected_segment_ids": {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  }
-                },
-                "required": [
-                  "image",
-                  "points",
-                  "rectangles",
-                  "selected_segment_ids",
-                  "inverted_segment_ids"
-                ],
-                "type": "object"
-              }
-            },
-            "required": [
-              "image",
-              "selection"
-            ],
-            "type": "object"
-          },
-          "workflow": {
-            "additionalProperties": false,
-            "properties": {
-              "run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "run_id",
-              "step_key"
-            ],
-            "type": [
-              "null",
-              "object"
-            ]
-          }
-        },
-        "required": [
-          "request",
-          "operation_key",
-          "maximum_credits"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_segment",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Run SAM rectangles in original image pixels (x, y, width, height) and save the cutout. Use a segmentation-input upload and an empty points list.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_credits": {
-            "type": "integer"
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "paid_fallback_credits": {
-            "type": "integer"
-          },
-          "request": {
-            "additionalProperties": false,
-            "properties": {
-              "image": {
-                "additionalProperties": false,
-                "properties": {
-                  "checksum_sha256": {
-                    "type": "string"
-                  },
-                  "content_type": {
-                    "type": "string"
-                  },
-                  "height": {
-                    "type": "integer"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "purpose": {
-                    "enum": [
-                      "workflow-input",
-                      "generation-base",
-                      "generation-guide",
-                      "generation-mask",
-                      "generation-object",
-                      "upscaling-input",
-                      "segmentation-input",
-                      "segmentation-cutout",
-                      "background-removal-input",
-                      "animation-start",
-                      "animation-end",
-                      "animation-reference"
-                    ],
-                    "type": "string"
-                  },
-                  "size_bytes": {
-                    "type": "integer"
-                  },
-                  "width": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "key",
-                  "purpose",
-                  "content_type",
-                  "size_bytes",
-                  "checksum_sha256",
-                  "width",
-                  "height"
-                ],
-                "type": "object"
-              },
-              "selection": {
-                "additionalProperties": false,
-                "properties": {
-                  "image": {
-                    "additionalProperties": {
-                      "type": "integer"
-                    },
-                    "type": "object"
-                  },
-                  "inverted_segment_ids": {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "points": {
-                    "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "label": {
-                          "type": "integer"
-                        },
-                        "x": {
-                          "type": "number"
-                        },
-                        "y": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "x",
-                        "y",
-                        "label"
-                      ],
-                      "type": "object"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "rectangles": {
-                    "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "height": {
-                          "type": "number"
-                        },
-                        "width": {
-                          "type": "number"
-                        },
-                        "x": {
-                          "type": "number"
-                        },
-                        "y": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "x",
-                        "y",
-                        "width",
-                        "height"
-                      ],
-                      "type": "object"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "selected_segment_ids": {
-                    "items": {
-                      "type": "integer"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  }
-                },
-                "required": [
-                  "image",
-                  "points",
-                  "rectangles",
-                  "selected_segment_ids",
-                  "inverted_segment_ids"
-                ],
-                "type": "object"
-              }
-            },
-            "required": [
-              "image",
-              "selection"
-            ],
-            "type": "object"
-          },
-          "workflow": {
-            "additionalProperties": false,
-            "properties": {
-              "run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "run_id",
-              "step_key"
-            ],
-            "type": [
-              "null",
-              "object"
-            ]
-          }
-        },
-        "required": [
-          "request",
-          "operation_key",
-          "maximum_credits"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_segment_and_save",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Update tags on the selected owned animation.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "request": {
-            "additionalProperties": false,
-            "properties": {
-              "tags": {
-                "items": {
-                  "type": "string"
-                },
-                "type": [
-                  "null",
-                  "array"
-                ]
-              }
-            },
-            "required": [
-              "tags"
-            ],
-            "type": "object"
-          }
-        },
-        "required": [
-          "id",
-          "request"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_update_animation_tags",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Update tags on the explicitly selected owned image.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "asset": {
-            "additionalProperties": false,
-            "properties": {
-              "filename": {
-                "type": "string"
-              },
-              "namespace": {
-                "enum": [
-                  "workflow",
-                  "background",
-                  "segmentation",
-                  "generation",
-                  "upscaling"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "namespace",
-              "filename"
-            ],
-            "type": "object"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          }
-        },
-        "required": [
-          "asset",
-          "tags"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_update_asset_tags",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Supply an input or apply an allowed legacy action at the acknowledged revision. Running automatic inputs cannot change.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "action": {
-            "$defs": {
-              "WorkflowSource": {
-                "additionalProperties": false,
-                "properties": {
-                  "asset": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "filename": {
-                        "type": "string"
-                      },
-                      "namespace": {
-                        "enum": [
-                          "workflow",
-                          "background",
-                          "segmentation",
-                          "generation",
-                          "upscaling"
-                        ],
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "namespace",
-                      "filename"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ]
-                  },
-                  "asset_id": {
-                    "type": "string"
-                  },
-                  "hash": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "type": "string"
-                  },
-                  "metadata": true,
-                  "name": {
-                    "type": "string"
-                  },
-                  "role": {
-                    "type": "string"
-                  },
-                  "sources": {
-                    "items": {
-                      "$ref": "#/properties/action/$defs/WorkflowSource"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "step_key": {
-                    "type": "string"
-                  },
-                  "step_revision": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "name",
-                  "kind",
-                  "step_key",
-                  "step_revision"
-                ],
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "else": {
-              "properties": {
-                "step_key": {
-                  "maxLength": 128,
-                  "minLength": 1,
-                  "not": {
-                    "enum": [
-                      ".",
-                      ".."
-                    ]
-                  },
-                  "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "step_key"
-              ]
-            },
-            "if": {
-              "properties": {
-                "kind": {
-                  "enum": [
-                    "reopen"
-                  ]
-                }
-              }
-            },
-            "properties": {
-              "action_id": {
-                "maxLength": 128,
-                "minLength": 1,
-                "not": {
-                  "enum": [
-                    ".",
-                    ".."
-                  ]
-                },
-                "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-                "type": "string"
-              },
-              "asset": {
-                "additionalProperties": false,
-                "properties": {
-                  "filename": {
-                    "type": "string"
-                  },
-                  "namespace": {
-                    "enum": [
-                      "workflow",
-                      "background",
-                      "segmentation",
-                      "generation",
-                      "upscaling"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "namespace",
-                  "filename"
-                ],
-                "type": [
-                  "null",
-                  "object"
-                ]
-              },
-              "asset_id": {
-                "type": "string"
-              },
-              "description": {
-                "type": "string"
-              },
-              "input": {
-                "type": "string"
-              },
-              "inspection_id": {
-                "type": "string"
-              },
-              "instructions": {
-                "type": "string"
-              },
-              "kind": {
-                "enum": [
-                  "activate",
-                  "attach",
-                  "select",
-                  "detach",
-                  "next",
-                  "skip",
-                  "complete",
-                  "reopen",
-                  "set_instructions",
-                  "confirm_metadata"
-                ],
-                "type": "string"
-              },
-              "metadata": true,
-              "reason": {
-                "type": "string"
-              },
-              "revision": {
-                "minimum": 1,
-                "type": "integer"
-              },
-              "source_run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "anyOf": [
-                  {
-                    "maxLength": 128,
-                    "minLength": 1,
-                    "not": {
-                      "enum": [
-                        ".",
-                        ".."
-                      ]
-                    },
-                    "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-                    "type": "string"
-                  },
-                  {
-                    "enum": [
-                      ""
-                    ]
-                  }
-                ]
-              }
-            },
-            "required": [
-              "action_id",
-              "revision",
-              "kind"
-            ],
-            "type": "object"
-          },
-          "run_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "not": {
-              "enum": [
-                ".",
-                ".."
-              ]
-            },
-            "pattern": "^[^/\\\\#\\x00\\r\\n]+$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "action",
-          "run_id"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_update_workflow",
-      "outputSchema": {
-        "additionalProperties": true,
-        "type": "object"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": false,
-        "idempotentHint": false,
-        "openWorldHint": false,
-        "readOnlyHint": false
-      },
-      "description": "Submit an image enlargement with the exact confirmed quote and an approved credit maximum.",
-      "inputSchema": {
-        "additionalProperties": false,
-        "properties": {
-          "maximum_credits": {
-            "type": "integer"
-          },
-          "operation_key": {
-            "type": "string"
-          },
-          "paid_fallback_credits": {
-            "type": "integer"
-          },
-          "request": {
-            "additionalProperties": false,
-            "properties": {
-              "factor": {
-                "type": "integer"
-              },
-              "mode": {
-                "type": "string"
-              },
-              "quote": {
-                "additionalProperties": false,
-                "properties": {
-                  "credit_cost": {
-                    "type": "integer"
-                  },
-                  "fingerprint": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "fingerprint",
-                  "credit_cost"
-                ],
-                "type": "object"
-              },
-              "source": {
-                "additionalProperties": false,
-                "oneOf": [
-                  {
-                    "properties": {
-                      "asset": {
-                        "type": "null"
-                      },
-                      "upload": {
-                        "type": "object"
-                      }
-                    },
-                    "required": [
-                      "upload"
-                    ]
-                  },
-                  {
-                    "properties": {
-                      "asset": {
-                        "type": "object"
-                      },
-                      "original_asset": {
-                        "type": "null"
-                      },
-                      "upload": {
-                        "type": "null"
-                      }
-                    },
-                    "required": [
-                      "asset"
-                    ]
-                  }
-                ],
-                "properties": {
-                  "asset": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "filename": {
-                        "type": "string"
-                      },
-                      "namespace": {
-                        "enum": [
-                          "generation",
-                          "background",
-                          "segmentation",
-                          "upscaling"
-                        ],
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "namespace",
-                      "filename"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ]
-                  },
-                  "original_asset": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "filename": {
-                        "type": "string"
-                      },
-                      "namespace": {
-                        "enum": [
-                          "generation",
-                          "background",
-                          "segmentation",
-                          "upscaling"
-                        ],
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "namespace",
-                      "filename"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ]
-                  },
-                  "upload": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "checksum_sha256": {
-                        "type": "string"
-                      },
-                      "content_type": {
-                        "type": "string"
-                      },
-                      "height": {
-                        "type": "integer"
-                      },
-                      "key": {
-                        "type": "string"
-                      },
-                      "purpose": {
-                        "enum": [
-                          "workflow-input",
-                          "generation-base",
-                          "generation-guide",
-                          "generation-mask",
-                          "generation-object",
-                          "upscaling-input",
-                          "segmentation-input",
-                          "segmentation-cutout",
-                          "background-removal-input",
-                          "animation-start",
-                          "animation-end",
-                          "animation-reference"
-                        ],
-                        "type": "string"
-                      },
-                      "size_bytes": {
-                        "type": "integer"
-                      },
-                      "width": {
-                        "type": "integer"
-                      }
-                    },
-                    "required": [
-                      "key",
-                      "purpose",
-                      "content_type",
-                      "size_bytes",
-                      "checksum_sha256",
-                      "width",
-                      "height"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ]
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "mode",
-              "source",
-              "factor",
-              "quote"
-            ],
-            "type": "object"
-          },
-          "workflow": {
-            "additionalProperties": false,
-            "properties": {
-              "run_id": {
-                "type": "string"
-              },
-              "step_key": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "run_id",
-              "step_key"
-            ],
-            "type": [
-              "null",
-              "object"
-            ]
-          }
-        },
-        "required": [
-          "request",
-          "operation_key",
-          "maximum_credits"
-        ],
-        "type": "object"
-      },
-      "name": "pixelbank_upscale_image",
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"

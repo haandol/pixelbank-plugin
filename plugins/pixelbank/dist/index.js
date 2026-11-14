@@ -24397,11 +24397,16 @@ function toError(value) {
 var DEFAULT_MAX_REQUEST_BODY_SIZE = 4 * 1024 * 1024;
 
 // src/errors.ts
+var identifier = (value) => typeof value === "string" && /^[a-z_]{1,64}$/.test(value);
+
 class SafeError extends Error {
   code;
   retryAfterSeconds;
   credit_cost;
   retry_same_command;
+  expected_property;
+  tool;
+  actions;
   constructor(code, message, retryAfterSeconds, details = {}) {
     super(message);
     this.code = code;
@@ -24410,6 +24415,13 @@ class SafeError extends Error {
       this.credit_cost = details.credit_cost;
     if (typeof details.retry_same_command === "boolean")
       this.retry_same_command = details.retry_same_command;
+    if (identifier(details.expected_property))
+      this.expected_property = details.expected_property;
+    if (identifier(details.tool) && details.tool.startsWith("pixelbank_"))
+      this.tool = details.tool;
+    const actions = details.actions;
+    if (Array.isArray(actions) && actions.length > 0 && actions.length <= 64 && actions.every(identifier))
+      this.actions = [...actions];
   }
 }
 var uncertainOutcome = "A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in PixelbankStudio first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.";
@@ -24423,7 +24435,10 @@ function safeError(error) {
       message: error.message,
       ...error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds },
       ...error.credit_cost === undefined ? {} : { credit_cost: error.credit_cost },
-      ...error.retry_same_command === undefined ? {} : { retry_same_command: error.retry_same_command }
+      ...error.retry_same_command === undefined ? {} : { retry_same_command: error.retry_same_command },
+      ...error.expected_property === undefined ? {} : { expected_property: error.expected_property },
+      ...error.tool === undefined ? {} : { tool: error.tool },
+      ...error.actions === undefined ? {} : { actions: [...error.actions] }
     } };
   return { error: { code: "INTERNAL_ERROR", message: `The plugin could not complete the operation for an unclassified reason. Ask the local operator to inspect the plugin before retrying. ${uncertainOutcome} Preserve credential and lock files; use pixelbank_disconnect for pending cleanup when storage is usable.` } };
 }
@@ -24708,7 +24723,9 @@ var messages = {
   ALREADY_PROCESSED: "This operation is already recorded and was not run again. Check available results or the workflow in PixelbankStudio. Do not automatically resubmit with a new operation key; a new operation requires explicit user intent.",
   WORKFLOW_CONFLICT: "The workflow changed. Reload its acknowledged state before choosing the next action.",
   WORKSPACE_CONFLICT: "This workspace preparation conflicts with an existing request or newer workflow revision.",
-  WORKSPACE_UNAVAILABLE: "The prepared workspace or one of its owned source assets is unavailable."
+  WORKSPACE_UNAVAILABLE: "The prepared workspace or one of its owned source assets is unavailable.",
+  INVALID_INPUT: "PixelbankStudio refused this call before doing any work because its arguments did not match the tool contract. Correct the arguments and send the call again; when expected_property is present, put the selected action's arguments in the object with that name and add no other action's object.",
+  INVALID_ACTION: "PixelbankStudio refused this call before doing any work because it did not name an available action. Correct the call and send it again with action set to one of the listed actions of the tool, and its arguments in the object with the same name."
 };
 function apiError(status, code, headerPause, structuredPause, details = {}) {
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code))
