@@ -2,8 +2,8 @@ import type { Auth } from './auth.js';
 import { SafeError, type Secrets } from './errors.js';
 import type { openBrowser } from './oauth.js';
 import type { RemoteOptions } from './remote.js';
-import { availableLocalActions, connectionSummaries, findLocalAction, ARGUMENTS_FIELD, CONNECTION_ACTIONS, CONNECTION_TOOL, DESCRIBE_ACTION, READ_TOOL,
-  type LocalAction } from './catalog.js';
+import { availableLocalActions, connectionSummaries, findLocalAction, findTool, firstUnexpectedKey, ARGUMENTS_FIELD, CONNECTION_ACTIONS, CONNECTION_TOOL,
+  DESCRIBE_ACTION, READ_TOOL, type LocalAction } from './catalog.js';
 import { invalidArguments, validateToolInput } from './input.js';
 import { parseUploadInput, uploadImage } from './upload.js';
 import { openPreparedWorkspace } from './workspace.js';
@@ -22,12 +22,12 @@ interface LocalDependencies {
 export async function runLocalAction(dependencies: LocalDependencies, tool: string, input: Record<string, unknown>,
   options: RemoteOptions): Promise<Record<string, unknown> | undefined> {
   const { auth, catalog } = dependencies;
-  if (tool === READ_TOOL && input.action === DESCRIBE_ACTION && catalog.some(entry => entry.name === READ_TOOL)) return describe(dependencies, input, options);
+  if (tool === READ_TOOL && input.action === DESCRIBE_ACTION && findTool(catalog, READ_TOOL)) return describe(dependencies, input, options);
   const local = findLocalAction(tool, input.action, catalog);
   if (!local) return undefined;
   const args = localArguments(local, input, catalog);
   if (local.action === 'wait_for_workflow')
-    return waitForWorkflow(auth, catalog.find(entry => entry.name === WORKFLOW_STATUS_TOOL)!, args, options);
+    return waitForWorkflow(auth, findTool(catalog, WORKFLOW_STATUS_TOOL)!, args, options);
   if (local.action === 'open_workspace') return openPreparedWorkspace(dependencies, args, options);
   return uploadImage(auth, dependencies.base, parseUploadInput(args), options.signal);
 }
@@ -35,7 +35,7 @@ export async function runLocalAction(dependencies: LocalDependencies, tool: stri
 /** A local action takes action and an optional arguments object, validated against its exact schema like the service. */
 function localArguments(local: LocalAction, input: Record<string, unknown>, catalog: ToolCatalog): Record<string, unknown> {
   const context = { tool: local.tool, action: local.action };
-  const extra = Object.keys(input).sort().find(key => key !== 'action' && key !== ARGUMENTS_FIELD);
+  const extra = firstUnexpectedKey(input);
   if (extra !== undefined) throw invalidArguments(`/${extra}`, { ...context, problem: 'unexpected' });
   const args = input[ARGUMENTS_FIELD] ?? {};
   if (typeof args !== 'object' || args === null || Array.isArray(args)) throw invalidArguments(`/${ARGUMENTS_FIELD}`, { ...context, problem: 'type' });
@@ -67,7 +67,7 @@ async function describe({ auth, catalog }: LocalDependencies, input: Record<stri
     if (extra !== undefined) throw invalidArguments(Object.hasOwn(input, extra) ? `/${extra}` : `/${ARGUMENTS_FIELD}/${extra}`, context);
     return { data: { tool: local.tool, action: local.action, authority: local.authority, description: local.summary, arguments_schema: local.schema() } };
   }
-  const read = catalog.find(tool => tool.name === READ_TOOL)!;
+  const read = findTool(catalog, READ_TOOL)!;
   validateToolInput(read, input, { tool: READ_TOOL, action: DESCRIBE_ACTION });
   const value = await auth.callCreativeTool(READ_TOOL, input, options);
   if (target === DESCRIBE_ACTION) return withOwnedTargets(value, owned);

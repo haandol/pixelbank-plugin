@@ -51024,16 +51024,16 @@ var WORKSPACE_READ_TOOL = "pixelbank_get_workspace";
 async function openPreparedWorkspace({ auth, browser, base, secrets }, input, options) {
   if (Object.keys(input).length !== 1 || typeof input.workspace_id !== "string" || !WORKSPACE_ID.test(input.workspace_id))
     throw new SafeError("INVALID_INPUT", "An owned prepared workspace identity is required.");
-  let value = await auth.callCreativeTool(WORKSPACE_READ_TOOL, input, options);
+  const value = await auth.callCreativeTool(WORKSPACE_READ_TOOL, input, options);
   const data = value.data;
   const url = validateWorkspaceURL(data?.url, base, input.workspace_id);
   if (secrets.contains(url))
     throw new SafeError("INVALID_WORKSPACE", "The workspace URL contains private connection data.");
   try {
     await browser(url);
-    value = { data: { workspace_id: input.workspace_id, url, opened: true } };
+    return { data: { workspace_id: input.workspace_id, url, opened: true } };
   } catch {
-    value = {
+    return {
       data: {
         workspace_id: input.workspace_id,
         url,
@@ -51042,7 +51042,6 @@ async function openPreparedWorkspace({ auth, browser, base, secrets }, input, op
       }
     };
   }
-  return value;
 }
 function validateWorkspaceURL(value, _base, workspaceId) {
   let url;
@@ -51121,6 +51120,7 @@ var WORKFLOW_STATUS_TOOL = "pixelbank_get_workflow_status";
 var defaultWaitSeconds = 30;
 var maximumWaitSeconds = 60;
 var minimumPollSeconds = 5;
+var waitCancelled = () => new SafeError("WAIT_CANCELLED", "Waiting stopped; the accepted workflow continues.");
 function supportsBoundedWait(status) {
   const properties = status.inputSchema.properties;
   return properties !== undefined && Object.hasOwn(properties, "run_id") && !Object.hasOwn(properties, "max_wait_seconds");
@@ -51150,7 +51150,7 @@ async function waitForWorkflow(auth, statusTool, input, options = {}, timer = cl
   const finish = (reason) => ({ ...last, wait: { reason, polls, elapsed_seconds: (timer.now() - start) / 1000, next_poll_after_seconds: nextDelay } });
   while (timer.now() < deadline) {
     if (options.signal?.aborted)
-      throw new SafeError("WAIT_CANCELLED", "Waiting stopped; the accepted workflow continues.");
+      throw waitCancelled();
     let current;
     try {
       current = await auth.callCreativeTool(WORKFLOW_STATUS_TOOL, arguments_, {
@@ -51160,7 +51160,7 @@ async function waitForWorkflow(auth, statusTool, input, options = {}, timer = cl
       });
     } catch (error) {
       if (options.signal?.aborted)
-        throw new SafeError("WAIT_CANCELLED", "Waiting stopped; the accepted workflow continues.");
+        throw waitCancelled();
       const timedOut = error instanceof SafeError && ["NETWORK_ERROR", "MCP_REQUEST_FAILED"].includes(error.code);
       if (last && timer.now() >= deadline && timedOut)
         return finish("time_limit");
@@ -51187,7 +51187,7 @@ async function waitForWorkflow(auth, statusTool, input, options = {}, timer = cl
       await timer.sleep(pause, options.signal);
     } catch (error) {
       if (options.signal?.aborted)
-        throw new SafeError("WAIT_CANCELLED", "Waiting stopped; the accepted workflow continues.");
+        throw waitCancelled();
       throw error;
     }
   }
@@ -51209,6 +51209,12 @@ var internalTools = new Map([
   [WORKFLOW_STATUS_TOOL, [READ_TOOL, "wait_for_workflow"]]
 ]);
 var internalToolNames = [...internalTools.keys()];
+function findTool(catalog, name) {
+  return catalog.find((tool) => tool.name === name);
+}
+function firstUnexpectedKey(input) {
+  return Object.keys(input).sort().find((key) => key !== "action" && key !== ARGUMENTS_FIELD);
+}
 var localActions = [
   {
     tool: READ_TOOL,
@@ -51216,7 +51222,7 @@ var localActions = [
     requires: WORKFLOW_STATUS_TOOL,
     serves: supportsBoundedWait,
     summary: "Wait up to 60 seconds for an accepted workflow run with read-only status checks; a finished run returns at once.",
-    schema: (catalog) => waitArgumentsSchema(catalog.find((tool) => tool.name === WORKFLOW_STATUS_TOOL))
+    schema: (catalog) => waitArgumentsSchema(findTool(catalog, WORKFLOW_STATUS_TOOL))
   },
   {
     tool: READ_TOOL,
@@ -51265,11 +51271,12 @@ var connectionTool = {
   },
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
 };
-var formerName = (action) => `pixelbank_${action}`;
+var toolPrefix = "pixelbank_";
+var formerName = (action) => `${toolPrefix}${action}`;
 var formerConnectionTools = new Set(CONNECTION_ACTIONS.map(formerName));
 var formerLocalTools = new Map(localActions.map((local) => [formerName(local.action), local]));
 function retiredConnectionTool(name) {
-  return formerConnectionTools.has(name) ? retiredTool(CONNECTION_TOOL, name.slice("pixelbank_".length)) : undefined;
+  return formerConnectionTools.has(name) ? retiredTool(CONNECTION_TOOL, name.slice(toolPrefix.length)) : undefined;
 }
 function retiredLocalTool(name, catalog) {
   const local = formerLocalTools.get(name);
@@ -51280,7 +51287,7 @@ function retiredLocalTool(name, catalog) {
   return visibleRemoteTools(catalog).some((tool) => tool.name === local.tool) ? retiredTool(local.tool) : undefined;
 }
 function retiredRemoteTool(name, catalog) {
-  const action = name.slice("pixelbank_".length);
+  const action = name.slice(toolPrefix.length);
   const owner = action === DESCRIBE_ACTION ? undefined : visibleRemoteTools(catalog).find((tool) => actionNames(tool).includes(action));
   return owner && retiredTool(owner.name, action);
 }
@@ -51303,7 +51310,7 @@ function actionNames(tool) {
 }
 function availableLocalActions(catalog) {
   return localActions.filter((local) => {
-    const required = catalog.find((tool) => tool.name === local.requires);
+    const required = findTool(catalog, local.requires);
     return catalog.some((tool) => tool.name === local.tool) && required !== undefined && (local.serves?.(required) ?? true);
   });
 }
@@ -51341,21 +51348,21 @@ function advertisedTools(catalog) {
 // src/local.ts
 async function runLocalAction(dependencies, tool, input, options) {
   const { auth, catalog } = dependencies;
-  if (tool === READ_TOOL && input.action === DESCRIBE_ACTION && catalog.some((entry) => entry.name === READ_TOOL))
+  if (tool === READ_TOOL && input.action === DESCRIBE_ACTION && findTool(catalog, READ_TOOL))
     return describe2(dependencies, input, options);
   const local = findLocalAction(tool, input.action, catalog);
   if (!local)
     return;
   const args = localArguments(local, input, catalog);
   if (local.action === "wait_for_workflow")
-    return waitForWorkflow(auth, catalog.find((entry) => entry.name === WORKFLOW_STATUS_TOOL), args, options);
+    return waitForWorkflow(auth, findTool(catalog, WORKFLOW_STATUS_TOOL), args, options);
   if (local.action === "open_workspace")
     return openPreparedWorkspace(dependencies, args, options);
   return uploadImage(auth, dependencies.base, parseUploadInput(args), options.signal);
 }
 function localArguments(local, input, catalog) {
   const context = { tool: local.tool, action: local.action };
-  const extra = Object.keys(input).sort().find((key) => key !== "action" && key !== ARGUMENTS_FIELD);
+  const extra = firstUnexpectedKey(input);
   if (extra !== undefined)
     throw invalidArguments(`/${extra}`, { ...context, problem: "unexpected" });
   const args = input[ARGUMENTS_FIELD] ?? {};
@@ -51393,7 +51400,7 @@ async function describe2({ auth, catalog }, input, options) {
       throw invalidArguments(Object.hasOwn(input, extra) ? `/${extra}` : `/${ARGUMENTS_FIELD}/${extra}`, context);
     return { data: { tool: local.tool, action: local.action, authority: local.authority, description: local.summary, arguments_schema: local.schema() } };
   }
-  const read = catalog.find((tool) => tool.name === READ_TOOL);
+  const read = findTool(catalog, READ_TOOL);
   validateToolInput(read, input, { tool: READ_TOOL, action: DESCRIBE_ACTION });
   const value = await auth.callCreativeTool(READ_TOOL, input, options);
   if (target === DESCRIBE_ACTION)
@@ -51423,17 +51430,17 @@ function describedAction(input) {
 // src/server.ts
 function refuseConnectionArguments(input) {
   const refuse = (location, problem) => new SafeError("INVALID_ARGUMENTS", `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(", ")}) and accepts no credentials, URLs, payment information or other arguments.`, undefined, { tool: CONNECTION_TOOL, action: input.action, location, problem });
-  const extra = Object.keys(input).sort().find((key) => key !== "action" && key !== "arguments");
+  const extra = firstUnexpectedKey(input);
   if (extra !== undefined)
     throw refuse(`/${extra}`, "unexpected");
-  const args = input.arguments;
+  const args = input[ARGUMENTS_FIELD];
   if (args === undefined)
     return;
   if (!args || typeof args !== "object" || Array.isArray(args))
-    throw refuse("/arguments", "type");
+    throw refuse(`/${ARGUMENTS_FIELD}`, "type");
   const nested = Object.keys(args).sort()[0];
   if (nested !== undefined)
-    throw refuse(`/arguments/${nested}`, "unexpected");
+    throw refuse(`/${ARGUMENTS_FIELD}/${nested}`, "unexpected");
 }
 function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone", dependencies = {}) {
   const base = dependencies.auth ? validateBase(dependencies.auth.base) : resolveBase();
@@ -51454,6 +51461,35 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     assertNoLocalOverrides(tools);
     return tools;
   };
+  const runConnectionAction = async (input) => {
+    if (!CONNECTION_ACTIONS.includes(input.action))
+      throw apiError(400, "INVALID_ACTION", undefined, undefined, { tool: CONNECTION_TOOL, actions: [...CONNECTION_ACTIONS] });
+    refuseConnectionArguments(input);
+    if (input.action === "open_credits_page")
+      return openCreditsPage(browser);
+    const value = input.action === "connect" ? await auth.connect() : await auth.disconnect();
+    await server.notification({ method: "notifications/tools/list_changed" }).catch(() => {});
+    return value;
+  };
+  const runCatalogTool = async (name, input, options, signal) => {
+    const retired = retiredConnectionTool(name);
+    if (retired)
+      throw retired;
+    if (isInternalTool(name))
+      throw refuseInternalTool(name);
+    catalog = await discover(signal);
+    const local = await runLocalAction({ auth, browser, base, secrets, catalog }, name, input, options);
+    if (local)
+      return local;
+    const tool = findTool(visibleRemoteTools(catalog), name);
+    if (!tool)
+      throw retiredLocalTool(name, catalog) ?? retiredRemoteTool(name, catalog) ?? new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated PixelbankStudio catalog.");
+    const actions = actionNames(findTool(advertisedTools(catalog), name));
+    if (actions.length && !actions.includes(input.action))
+      throw apiError(400, "INVALID_ACTION", undefined, undefined, { tool: name, actions });
+    validateToolInput(tool, input, { tool: name, action: typeof input.action === "string" ? input.action : undefined });
+    return auth.callCreativeTool(name, input, options);
+  };
   server.setRequestHandler("tools/list", async (_request, extra) => {
     catalog = [];
     try {
@@ -51461,7 +51497,6 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     } catch (error) {
       if (!(error instanceof SafeError && error.code === "AUTH_REQUIRED"))
         throw error;
-      catalog = [];
     }
     return { tools: secrets.clean(advertisedTools(catalog)), ttlMs: 0, cacheScope: "private" };
   });
@@ -51473,37 +51508,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     } };
     let value;
     try {
-      if (name === CONNECTION_TOOL) {
-        if (!CONNECTION_ACTIONS.includes(input.action))
-          throw apiError(400, "INVALID_ACTION", undefined, undefined, { tool: CONNECTION_TOOL, actions: [...CONNECTION_ACTIONS] });
-        refuseConnectionArguments(input);
-        if (input.action === "open_credits_page")
-          value = await openCreditsPage(browser);
-        else {
-          value = input.action === "connect" ? await auth.connect() : await auth.disconnect();
-          await server.notification({ method: "notifications/tools/list_changed" }).catch(() => {});
-        }
-      } else {
-        const retired = retiredConnectionTool(name);
-        if (retired)
-          throw retired;
-        if (isInternalTool(name))
-          throw refuseInternalTool(name);
-        catalog = await discover(extra.mcpReq.signal);
-        const local = await runLocalAction({ auth, browser, base, secrets, catalog }, name, input, options);
-        if (local)
-          value = local;
-        else {
-          const tool = visibleRemoteTools(catalog).find((tool) => tool.name === name);
-          if (!tool)
-            throw retiredLocalTool(name, catalog) ?? retiredRemoteTool(name, catalog) ?? new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated PixelbankStudio catalog.");
-          const actions = actionNames(advertisedTools(catalog).find((entry) => entry.name === name));
-          if (actions.length && !actions.includes(input.action))
-            throw apiError(400, "INVALID_ACTION", undefined, undefined, { tool: name, actions });
-          validateToolInput(tool, input, { tool: name, action: typeof input.action === "string" ? input.action : undefined });
-          value = await auth.callCreativeTool(name, input, options);
-        }
-      }
+      value = name === CONNECTION_TOOL ? await runConnectionAction(input) : await runCatalogTool(name, input, options, extra.mcpReq.signal);
     } catch (error) {
       value = await recoverCreditShortage(error, browser);
     }

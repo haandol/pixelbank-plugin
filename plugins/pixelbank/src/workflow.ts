@@ -10,6 +10,7 @@ export const WORKFLOW_STATUS_TOOL = 'pixelbank_get_workflow_status';
 const defaultWaitSeconds = 30;
 const maximumWaitSeconds = 60;
 const minimumPollSeconds = 5;
+const waitCancelled = () => new SafeError('WAIT_CANCELLED', 'Waiting stopped; the accepted workflow continues.');
 
 /** A status contract carries a bounded wait when it takes run_id and leaves max_wait_seconds to the bridge. */
 export function supportsBoundedWait(status: Tool): boolean {
@@ -56,14 +57,14 @@ export async function waitForWorkflow(auth: Pick<Auth, 'callCreativeTool'>, stat
   let last: Record<string, unknown> | undefined, revision: unknown, backoff = minimumPollSeconds, polls = 0, nextDelay = 0;
   const finish = (reason: string) => ({ ...last, wait: { reason, polls, elapsed_seconds: (timer.now() - start) / 1000, next_poll_after_seconds: nextDelay } });
   while (timer.now() < deadline) {
-    if (options.signal?.aborted) throw new SafeError('WAIT_CANCELLED', 'Waiting stopped; the accepted workflow continues.');
+    if (options.signal?.aborted) throw waitCancelled();
     let current: Record<string, unknown>;
     try {
       current = await auth.callCreativeTool(WORKFLOW_STATUS_TOOL, arguments_, {
         ...options, timeoutMs: Math.min(30_000, deadline - timer.now()), onProgress: undefined,
       });
     } catch (error) {
-      if (options.signal?.aborted) throw new SafeError('WAIT_CANCELLED', 'Waiting stopped; the accepted workflow continues.');
+      if (options.signal?.aborted) throw waitCancelled();
       const timedOut = error instanceof SafeError && ['NETWORK_ERROR', 'MCP_REQUEST_FAILED'].includes(error.code);
       if (last && timer.now() >= deadline && timedOut) return finish('time_limit');
       throw error;
@@ -82,7 +83,7 @@ export async function waitForWorkflow(auth: Pick<Auth, 'callCreativeTool'>, stat
     if (pause >= deadline - timer.now()) return finish('time_limit');
     try { await timer.sleep(pause, options.signal); }
     catch (error) {
-      if (options.signal?.aborted) throw new SafeError('WAIT_CANCELLED', 'Waiting stopped; the accepted workflow continues.');
+      if (options.signal?.aborted) throw waitCancelled();
       throw error;
     }
   }

@@ -4,25 +4,26 @@ import { CredentialStore } from './store.js';
 import { resolveBase, validateBase } from './config.js';
 import { SafeError, Secrets } from './errors.js';
 import { openBrowser } from './oauth.js';
-import { actionNames, advertisedTools, assertNoLocalOverrides, CONNECTION_ACTIONS, CONNECTION_TOOL, isInternalTool, refuseInternalTool, retiredConnectionTool,
-  retiredLocalTool, retiredRemoteTool, visibleRemoteTools } from './catalog.js';
+import { actionNames, advertisedTools, assertNoLocalOverrides, findTool, firstUnexpectedKey, ARGUMENTS_FIELD, CONNECTION_ACTIONS, CONNECTION_TOOL, isInternalTool,
+  refuseInternalTool, retiredConnectionTool, retiredLocalTool, retiredRemoteTool, visibleRemoteTools } from './catalog.js';
 import { runLocalAction } from './local.js';
 import { openCreditsPage, recoverCreditShortage } from './credits.js';
 import { validateToolInput } from './input.js';
 import { apiError } from './api-errors.js';
+import type { RemoteOptions } from './remote.js';
 export { validateWorkspaceURL } from './workspace.js';
 
 /** Connection actions take no arguments; an empty arguments object is accepted like any argument-free action. */
 function refuseConnectionArguments(input: Record<string, unknown>): void {
   const refuse = (location: string, problem: string) => new SafeError('INVALID_ARGUMENTS', `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(', ')}) and accepts no credentials, URLs, payment information or other arguments.`,
     undefined, { tool: CONNECTION_TOOL, action: input.action, location, problem });
-  const extra = Object.keys(input).sort().find(key => key !== 'action' && key !== 'arguments');
+  const extra = firstUnexpectedKey(input);
   if (extra !== undefined) throw refuse(`/${extra}`, 'unexpected');
-  const args = input.arguments;
+  const args = input[ARGUMENTS_FIELD];
   if (args === undefined) return;
-  if (!args || typeof args !== 'object' || Array.isArray(args)) throw refuse('/arguments', 'type');
+  if (!args || typeof args !== 'object' || Array.isArray(args)) throw refuse(`/${ARGUMENTS_FIELD}`, 'type');
   const nested = Object.keys(args).sort()[0];
-  if (nested !== undefined) throw refuse(`/arguments/${nested}`, 'unexpected');
+  if (nested !== undefined) throw refuse(`/${ARGUMENTS_FIELD}/${nested}`, 'unexpected');
 }
 
 /** The local server bridges only the authenticated remote catalog and local connection actions. */
@@ -41,10 +42,34 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
     assertNoLocalOverrides(tools);
     return tools;
   };
+  const runConnectionAction = async (input: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    if (!CONNECTION_ACTIONS.includes(input.action as never))
+      throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: CONNECTION_TOOL, actions: [...CONNECTION_ACTIONS] });
+    refuseConnectionArguments(input);
+    if (input.action === 'open_credits_page') return openCreditsPage(browser);
+    const value = input.action === 'connect' ? await auth.connect() : await auth.disconnect();
+    await server.notification({ method: 'notifications/tools/list_changed' }).catch(() => {});
+    return value;
+  };
+  const runCatalogTool = async (name: string, input: Record<string, unknown>, options: RemoteOptions, signal: AbortSignal): Promise<Record<string, unknown>> => {
+    const retired = retiredConnectionTool(name);
+    if (retired) throw retired;
+    if (isInternalTool(name)) throw refuseInternalTool(name);
+    catalog = await discover(signal);
+    const local = await runLocalAction({ auth, browser, base, secrets, catalog }, name, input, options);
+    if (local) return local;
+    const tool = findTool(visibleRemoteTools(catalog), name);
+    if (!tool) throw retiredLocalTool(name, catalog) ?? retiredRemoteTool(name, catalog) ?? new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
+    const actions = actionNames(findTool(advertisedTools(catalog), name)!);
+    if (actions.length && !actions.includes(input.action as string))
+      throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: name, actions });
+    validateToolInput(tool, input, { tool: name, action: typeof input.action === 'string' ? input.action : undefined });
+    return auth.callCreativeTool(name, input, options);
+  };
   server.setRequestHandler('tools/list', async (_request, extra) => {
     catalog = [];
     try { catalog = await discover(extra.mcpReq.signal); }
-    catch (error) { if (!(error instanceof SafeError && error.code === 'AUTH_REQUIRED')) throw error; catalog = []; }
+    catch (error) { if (!(error instanceof SafeError && error.code === 'AUTH_REQUIRED')) throw error; }
     return { tools: secrets.clean(advertisedTools(catalog)) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
   });
   server.setRequestHandler('tools/call', async (request, extra) => {
@@ -54,34 +79,8 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
       void extra.mcpReq.notify({ method: 'notifications/progress', params: { progressToken, progress, ...(total === undefined ? {} : { total }) } }).catch(() => {});
     } };
     let value: Record<string, unknown>;
-    try {
-      if (name === CONNECTION_TOOL) {
-        if (!CONNECTION_ACTIONS.includes(input.action as never))
-          throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: CONNECTION_TOOL, actions: [...CONNECTION_ACTIONS] });
-        refuseConnectionArguments(input);
-        if (input.action === 'open_credits_page') value = await openCreditsPage(browser);
-        else {
-          value = input.action === 'connect' ? await auth.connect() : await auth.disconnect();
-          await server.notification({ method: 'notifications/tools/list_changed' }).catch(() => {});
-        }
-      } else {
-        const retired = retiredConnectionTool(name);
-        if (retired) throw retired;
-        if (isInternalTool(name)) throw refuseInternalTool(name);
-        catalog = await discover(extra.mcpReq.signal);
-        const local = await runLocalAction({ auth, browser, base, secrets, catalog }, name, input, options);
-        if (local) value = local;
-        else {
-          const tool = visibleRemoteTools(catalog).find(tool => tool.name === name);
-          if (!tool) throw retiredLocalTool(name, catalog) ?? retiredRemoteTool(name, catalog) ?? new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
-          const actions = actionNames(advertisedTools(catalog).find(entry => entry.name === name)!);
-          if (actions.length && !actions.includes(input.action as string))
-            throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: name, actions });
-          validateToolInput(tool, input, { tool: name, action: typeof input.action === 'string' ? input.action : undefined });
-          value = await auth.callCreativeTool(name, input, options);
-        }
-      }
-    } catch (error) { value = await recoverCreditShortage(error, browser); }
+    try { value = name === CONNECTION_TOOL ? await runConnectionAction(input) : await runCatalogTool(name, input, options, extra.mcpReq.signal); }
+    catch (error) { value = await recoverCreditShortage(error, browser); }
     const clean = secrets.clean(value) as Record<string, unknown>;
     return { content: [{ type: 'text' as const, text: JSON.stringify(clean) }], structuredContent: clean, isError: 'error' in clean };
   });

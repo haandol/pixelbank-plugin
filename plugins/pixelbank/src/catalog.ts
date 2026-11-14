@@ -25,6 +25,15 @@ const internalTools = new Map<string, [string, string]>([
 ]);
 export const internalToolNames: readonly string[] = [...internalTools.keys()];
 
+export function findTool(catalog: ToolCatalog, name: string): Tool | undefined {
+  return catalog.find(tool => tool.name === name);
+}
+
+/** Top-level keys other than action and arguments, sorted so the first one is reported deterministically. */
+export function firstUnexpectedKey(input: Record<string, unknown>): string | undefined {
+  return Object.keys(input).sort().find(key => key !== 'action' && key !== ARGUMENTS_FIELD);
+}
+
 /** One operation the bridge runs itself inside the remote tool of its authority class. */
 export interface LocalAction {
   tool: typeof READ_TOOL | typeof EDIT_TOOL;
@@ -41,7 +50,7 @@ export const localActions: readonly LocalAction[] = [
   {
     tool: READ_TOOL, action: 'wait_for_workflow', requires: WORKFLOW_STATUS_TOOL, serves: supportsBoundedWait,
     summary: 'Wait up to 60 seconds for an accepted workflow run with read-only status checks; a finished run returns at once.',
-    schema: catalog => waitArgumentsSchema(catalog.find(tool => tool.name === WORKFLOW_STATUS_TOOL)!),
+    schema: catalog => waitArgumentsSchema(findTool(catalog, WORKFLOW_STATUS_TOOL)!),
   },
   {
     tool: READ_TOOL, action: 'open_workspace', requires: WORKSPACE_READ_TOOL,
@@ -77,13 +86,14 @@ export const connectionTool: Tool = {
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 };
 
-const formerName = (action: string) => `pixelbank_${action}`;
+const toolPrefix = 'pixelbank_';
+const formerName = (action: string) => `${toolPrefix}${action}`;
 const formerConnectionTools = new Set(CONNECTION_ACTIONS.map(formerName));
 const formerLocalTools = new Map(localActions.map(local => [formerName(local.action), local]));
 
 /** A former connection-control name; the connection tool and its actions never depend on the live catalog. */
 export function retiredConnectionTool(name: string): SafeError | undefined {
-  return formerConnectionTools.has(name) ? retiredTool(CONNECTION_TOOL, name.slice('pixelbank_'.length)) : undefined;
+  return formerConnectionTools.has(name) ? retiredTool(CONNECTION_TOOL, name.slice(toolPrefix.length)) : undefined;
 }
 
 /** A former local tool name names its action only while the current catalog offers it, else just its tool. */
@@ -96,7 +106,7 @@ export function retiredLocalTool(name: string, catalog: ToolCatalog): SafeError 
 
 /** A former per-operation name whose operation now lives in a visible tool. */
 export function retiredRemoteTool(name: string, catalog: ToolCatalog): SafeError | undefined {
-  const action = name.slice('pixelbank_'.length);
+  const action = name.slice(toolPrefix.length);
   const owner = action === DESCRIBE_ACTION ? undefined : visibleRemoteTools(catalog).find(tool => actionNames(tool).includes(action));
   return owner && retiredTool(owner.name, action);
 }
@@ -128,7 +138,7 @@ export function actionNames(tool: Tool): string[] {
 /** Local actions the current catalog can serve: their remote tool and a usable internal read are both advertised. */
 export function availableLocalActions(catalog: ToolCatalog): LocalAction[] {
   return localActions.filter(local => {
-    const required = catalog.find(tool => tool.name === local.requires);
+    const required = findTool(catalog, local.requires);
     return catalog.some(tool => tool.name === local.tool) && required !== undefined && (local.serves?.(required) ?? true);
   });
 }

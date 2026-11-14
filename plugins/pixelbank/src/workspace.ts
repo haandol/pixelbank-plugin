@@ -25,16 +25,16 @@ export async function openPreparedWorkspace(
     !WORKSPACE_ID.test(input.workspace_id)
   )
     throw new SafeError('INVALID_INPUT', 'An owned prepared workspace identity is required.');
-  let value = await auth.callCreativeTool(WORKSPACE_READ_TOOL, input, options);
+  const value = await auth.callCreativeTool(WORKSPACE_READ_TOOL, input, options);
   const data = value.data as { url?: unknown } | undefined;
   const url = validateWorkspaceURL(data?.url, base, input.workspace_id);
   if (secrets.contains(url))
     throw new SafeError('INVALID_WORKSPACE', 'The workspace URL contains private connection data.');
   try {
     await browser(url);
-    value = { data: { workspace_id: input.workspace_id, url, opened: true } };
+    return { data: { workspace_id: input.workspace_id, url, opened: true } };
   } catch {
-    value = {
+    return {
       data: {
         workspace_id: input.workspace_id,
         url,
@@ -43,7 +43,6 @@ export async function openPreparedWorkspace(
       },
     };
   }
-  return value;
 }
 
 export function validateWorkspaceURL(value: unknown, _base: string, workspaceId?: string): string {
