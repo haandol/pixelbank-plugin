@@ -53,7 +53,7 @@ When the remote catalog exposes the hidden `pixelbank_get_workflow_status`, the 
 
 ### Version and artifact identity
 
-Keep version `0.2.3` synchronized across the root workspace, plugin package, lockfile workspace entry, host manifests and marketplace metadata. Naming and layout corrections do not change the API or require a version bump. The plugin version and API contract version are separate.
+Keep version `0.3.0` synchronized across the root workspace, plugin package, lockfile workspace entry, host manifests and marketplace metadata. Naming and layout corrections do not change the API or require a version bump. The plugin version and API contract version are separate.
 
 Release verification tests use Git and unzip, both provided by the Dev Container and verification images.
 
