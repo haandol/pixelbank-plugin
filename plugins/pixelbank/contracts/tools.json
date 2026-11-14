@@ -2911,7 +2911,7 @@
           "/arguments/request/max_credits"
         ]
       },
-      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision, quote_id and max_credits. One workflow charge includes up to three total attempts; tool free uses do not apply. The server completes all declared steps and saves library results; wait with pixelbank_read wait_for_workflow where offered, or poll pixelbank_get_workflow_status {run_id}, without further writes.",
+      "description": "Authorize and durably start the quoted workflow once. Preserve action_id, revision, quote_id and max_credits. One workflow charge includes up to three total attempts; tool free uses do not apply. The server completes all declared steps and saves library results. Wait with pixelbank_read action wait_for_workflow when available, without further writes; direct clients without that action poll pixelbank_get_workflow_status {run_id}.",
       "tool": "pixelbank_run"
     }
   ],
