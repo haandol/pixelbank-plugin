@@ -16,7 +16,10 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`portable bun
   assert.match(licenses, /EncBird/i); assert.match(licenses, /@modelcontextprotocol\/client 2\.4\.0/); assert.match(licenses, /jose 6\./); assert.match(licenses, /image-size 2\./);
   const originalLicense = await readFile('LICENSE.encbird', 'utf8'); assert.ok(licenses.includes(originalLicense));
   const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
-  m.rpc.tools = [{ name: 'pixelbank_get_account', inputSchema: { type: 'object', additionalProperties: false }, outputSchema: { type: 'object', required: ['data'], properties: { data: { type: 'object' } } } }];
+  m.rpc.tools = [{ name: 'pixelbank_read', inputSchema: { type: 'object', additionalProperties: false, required: ['action'],
+    properties: { action: { type: 'string', enum: ['get_account'] } } }, outputSchema: { type: 'object', required: ['data'], properties: { data: { type: 'object' } } } },
+    { name: 'pixelbank_get_workspace', inputSchema: { type: 'object' } },
+    { name: 'pixelbank_get_workflow_status', inputSchema: { type: 'object', properties: { run_id: { type: 'string' } }, required: ['run_id'], additionalProperties: false } }];
   m.flags.apiBody = { data: { display_name: 'Fixture', credits: 7 } };
   const transport = new StdioClientTransport({ command: process.execPath, args: [join(isolated, 'bundle', 'index.js')], cwd: isolated, stderr: 'pipe', env: {
     PATH: process.env.PATH!, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host', PIXELBANK_CREDENTIALS_DIR: m.directory,
@@ -24,8 +27,10 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`portable bun
   let stderr = ''; transport.stderr?.on('data', chunk => { stderr += chunk.toString(); });
   const client = new Client({ name: 'fixture-host', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });
   t.after(() => client.close()); await client.connect(transport, { timeout: 10_000 });
-  const catalog = await client.listTools(); assert.ok(catalog.tools.some(t => t.name === 'pixelbank_get_account'));
-  const account = await client.callTool({ name: 'pixelbank_get_account', arguments: {} });
+  const catalog = await client.listTools(); assert.ok(catalog.tools.some(t => t.name === 'pixelbank_read'));
+  assert.ok(catalog.tools.some(t => t.name === 'pixelbank_wait_for_workflow'));
+  assert.ok(!catalog.tools.some(t => ['pixelbank_get_workspace', 'pixelbank_get_workflow_status'].includes(t.name)));
+  const account = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'get_account' } });
   assert.deepEqual(account.structuredContent, m.flags.apiBody);
   let progressSeen = false;
   m.hooks.rpc = async (body, _req, res) => {
@@ -35,7 +40,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`portable bun
     await delay(40);
     res.end(`data: ${JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { resultType: 'complete', content: [], structuredContent: m.flags.apiBody } })}\n\n`); return true;
   };
-  const streamed = await client.callTool({ name: 'pixelbank_get_account', arguments: {} }, { onprogress: progress => { progressSeen = true; assert.equal(progress.message, undefined); assert.equal(progress.progress, 1); } });
+  const streamed = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'get_account' } }, { onprogress: progress => { progressSeen = true; assert.equal(progress.message, undefined); assert.equal(progress.progress, 1); } });
   assert.equal(progressSeen, true); assert.deepEqual(streamed.structuredContent, m.flags.apiBody);
   delete m.hooks.rpc;
   const connection = await client.callTool({ name: 'pixelbank_connect', arguments: {} });
@@ -51,7 +56,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   await cp('dist', join(isolated, 'bundle'), { recursive: true });
   await assert.rejects(access(join(isolated, 'node_modules')));
   const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
-  const name = 'pixelbank_generate_image';
+  const name = 'pixelbank_generate';
   m.rpc.tools = [{ name, inputSchema: { type: 'object' } }];
   const transport = new StdioClientTransport({ command: process.execPath, args: [join(isolated, 'bundle', 'index.js')], cwd: isolated, stderr: 'pipe', env: {
     PATH: process.env.PATH!, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host', PIXELBANK_CREDENTIALS_DIR: m.directory,
@@ -85,7 +90,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   ];
   for (const testCase of cases) {
     await m.clearTraffic();
-    const input = { operation_key: `original-${testCase.label}`, maximum_credits: 5 };
+    const input = { action: 'generate_image', operation_key: `original-${testCase.label}`, maximum_credits: 5 };
     const code = testCase.code ?? 'FREE_TRIAL_UNAVAILABLE';
     let envelope = JSON.stringify({ error: { code, ...testCase.details,
       message: 'provider-secret', unknown: 'provider-secret', upload_url: 'https://fixture/?X-Amz-Signature=provider-secret' } });
@@ -118,7 +123,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   const isolated = await tempDirectory(); t.after(() => rm(isolated, { recursive: true, force: true }));
   await cp('dist', join(isolated, 'bundle'), { recursive: true });
   const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
-  m.rpc.tools = [{ name: 'pixelbank_get_asset', inputSchema: { type: 'object' } }];
+  m.rpc.tools = [{ name: 'pixelbank_read', inputSchema: { type: 'object' } }];
   m.flags.apiBody = { error: { code: 'ASSET_NOT_FOUND', message: 'private storage detail' } };
   m.hooks.rpc = (body, _req, res) => {
     if (body.method !== 'tools/call') return false;
@@ -133,8 +138,8 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   } });
   const client = new Client({ name: 'missing-asset-regression', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });
   t.after(() => client.close()); await client.connect(transport, { timeout: 10_000 });
-  const input = { namespace: 'generation', filename: 'deleted.png' };
-  const result = await client.callTool({ name: 'pixelbank_get_asset', arguments: input });
+  const input = { action: 'get_asset', get_asset: { namespace: 'generation', filename: 'deleted.png' } };
+  const result = await client.callTool({ name: 'pixelbank_read', arguments: input });
   assert.equal(result.isError, true);
   assert.deepEqual(result.structuredContent, { error: {
     code: 'ASSET_NOT_FOUND', message: 'The requested image is unavailable. Refresh the library or choose another image.',
@@ -148,7 +153,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   const isolated = await tempDirectory(); t.after(() => rm(isolated, { recursive: true, force: true }));
   await cp('dist', join(isolated, 'bundle'), { recursive: true });
   const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
-  m.rpc.tools = [{ name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  m.rpc.tools = [{ name: 'pixelbank_generate', inputSchema: { type: 'object' } }];
   m.hooks.rpc = (body, _req, res) => {
     if (body.method !== 'tools/call') return false;
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
@@ -166,8 +171,8 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   } });
   const client = new Client({ name: 'credit-recovery-regression', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });
   t.after(() => client.close()); await client.connect(transport, { timeout: 10_000 });
-  const input = { request: { options: { prompt: 'Robot' } }, operation_key: 'original-shortfall', maximum_credits: 5 };
-  const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: input });
+  const input = { action: 'generate_image', generate_image: { options: { prompt: 'Robot' } }, operation_key: 'original-shortfall', maximum_credits: 5 };
+  const result = await client.callTool({ name: 'pixelbank_generate', arguments: input });
   assert.equal(result.isError, true);
   assert.deepEqual(result.structuredContent, { error: {
     code: 'NOT_ENOUGH_CREDIT', message: 'There are not enough credits. Add credits at https://www.pixelbankstudio.com/pricing, then ask to continue the original request.',

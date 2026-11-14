@@ -29,15 +29,63 @@ test('disconnected catalog includes connection/local controls and never leaks th
   assert.equal(denied.isError, true); assert.ok(!JSON.stringify(denied).includes('supplied-secret'));
 });
 
-test('authenticated catalog preserves remote schemas/annotations but keeps upload tickets private', async t => {
+const internalTools = ['pixelbank_issue_upload', 'pixelbank_save_source', 'pixelbank_get_workspace', 'pixelbank_get_workflow_status'];
+const replacements: Record<string, string> = { pixelbank_issue_upload: 'pixelbank_upload_image', pixelbank_save_source: 'pixelbank_upload_image',
+  pixelbank_get_workspace: 'pixelbank_open_workspace', pixelbank_get_workflow_status: 'pixelbank_wait_for_workflow' };
+const statusTool = { name: 'pixelbank_get_workflow_status', inputSchema: { type: 'object',
+  properties: { run_id: { type: 'string', minLength: 1 } }, required: ['run_id'], additionalProperties: false } };
+// A grouped tool: a required action enum, one same-named object per action and shared root definitions.
+const groupedTool = { name: 'pixelbank_edit', description: 'Edit library items. Actions: prepare_workspace, update_asset_tags.',
+  inputSchema: { type: 'object', additionalProperties: false, required: ['action'],
+    $defs: { asset: { type: 'object', additionalProperties: false, required: ['namespace', 'filename'],
+      properties: { namespace: { type: 'string', enum: ['generation', 'upload'] }, filename: { type: 'string', minLength: 1 } } } },
+    properties: {
+      action: { type: 'string', enum: ['prepare_workspace', 'update_asset_tags'] },
+      prepare_workspace: { type: 'object', additionalProperties: false, required: ['operation_key', 'sources'],
+        properties: { operation_key: { type: 'string' }, sources: { type: 'array', items: { $ref: '#/$defs/asset' } } } },
+      update_asset_tags: { type: 'object', additionalProperties: false, required: ['asset', 'tags'],
+        properties: { asset: { $ref: '#/$defs/asset' }, tags: { type: 'array', items: { type: 'string' } } } },
+    } },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } };
+
+test('authenticated catalog preserves grouped remote tools but keeps upload, workspace and status reads private', async t => {
   const { m, client } = await fixture(t);
-  const remote = { name: 'pixelbank_prepare_workspace', description: 'Prepare', inputSchema: { type: 'object', required: ['operation_key'], properties: { operation_key: { type: 'string' } } }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } };
-  m.rpc.tools = [remote, ...['pixelbank_issue_upload', 'pixelbank_save_source'].map(name => ({ name, inputSchema: { type: 'object' } }))];
+  m.rpc.tools = [groupedTool, statusTool, ...internalTools.filter(name => name !== statusTool.name).map(name => ({ name, inputSchema: { type: 'object' } }))];
   const catalog = await client.listTools();
-  assert.deepEqual(catalog.tools.find(t => t.name === remote.name), remote);
-  for (const name of ['pixelbank_issue_upload', 'pixelbank_save_source']) {
-    assert.ok(!catalog.tools.some(t => t.name === name));
-    const result = await client.callTool({ name, arguments: {} }); assert.equal(result.isError, true);
+  assert.deepEqual(catalog.tools.find(t => t.name === groupedTool.name), groupedTool);
+  assert.deepEqual(catalog.tools.map(t => t.name).sort(), ['pixelbank_connect', 'pixelbank_disconnect', 'pixelbank_edit', 'pixelbank_open_credits_page',
+    'pixelbank_open_workspace', 'pixelbank_upload_image', 'pixelbank_wait_for_workflow']);
+  for (const name of internalTools) {
+    const result = await client.callTool({ name, arguments: name === statusTool.name ? { run_id: 'run' } : {} });
+    assert.equal(result.isError, true); assert.equal((result.structuredContent as any).error.code, 'UNKNOWN_TOOL');
+    assert.match((result.structuredContent as any).error.message, new RegExp(`Use ${replacements[name]} instead`));
+  }
+  assert.equal(m.rpcCalls().length, 0);
+});
+
+test('grouped tools compile shared definitions and forward the action and its object unchanged', async t => {
+  const { m, client } = await fixture(t);
+  m.rpc.tools = [groupedTool];
+  const asset = { namespace: 'generation', filename: 'robot.png' };
+  for (const input of [{ action: 'delete_asset', update_asset_tags: { asset, tags: [] } }, { action: 'update_asset_tags', update_asset_tags: { asset: { ...asset, namespace: 'other' }, tags: [] } },
+    { update_asset_tags: { asset, tags: [] } }]) {
+    const denied = await client.callTool({ name: groupedTool.name, arguments: input });
+    assert.equal((denied.structuredContent as any).error.code, 'INVALID_INPUT');
+  }
+  assert.equal(m.rpcCalls().length, 0);
+  m.flags.apiBody = { data: { asset, tags: ['robot'] } };
+  const input = { action: 'update_asset_tags', update_asset_tags: { asset, tags: ['robot'] } };
+  const result = await client.callTool({ name: groupedTool.name, arguments: input });
+  assert.notEqual(result.isError, true);
+  assert.deepEqual(m.rpcCalls().map(call => [(call.body as any).params.name, (call.body as any).params.arguments]), [[groupedTool.name, input]]);
+});
+
+test('former per-operation names are refused locally without an alias or a remote call', async t => {
+  const { m, client } = await fixture(t);
+  m.rpc.tools = [groupedTool, { name: 'pixelbank_generate', inputSchema: { type: 'object' } }];
+  for (const name of ['pixelbank_update_asset_tags', 'pixelbank_generate_image', 'pixelbank_get_account']) {
+    const result = await client.callTool({ name, arguments: { operation_key: 'retired', maximum_credits: 5 } });
+    assert.equal(result.isError, true); assert.equal((result.structuredContent as any).error.code, 'UNKNOWN_TOOL');
   }
   assert.equal(m.rpcCalls().length, 0);
 });
@@ -52,6 +100,8 @@ for (const control of ['pixelbank_connect', 'pixelbank_open_credits_page', 'pixe
 
 test('workspace open resolves the exact owned ID, invokes only the injected opener, and keeps URL on failure', async t => {
   const { m, client, opens, settings } = await fixture(t);
+  m.rpc.tools = [{ name: 'pixelbank_get_workspace', inputSchema: { type: 'object' } }];
+  assert.ok(!(await client.listTools()).tools.some(tool => tool.name === 'pixelbank_get_workspace'));
   m.flags.apiBody = { data: { workspace_id: id, url } };
   let result = await client.callTool({ name: 'pixelbank_open_workspace', arguments: { workspace_id: id } });
   assert.deepEqual(result.structuredContent, { data: { workspace_id: id, url, opened: true } });
@@ -79,12 +129,12 @@ test('remote calls validate a refreshed contract even after an earlier discovery
   assert.equal(m.rpcCalls().length, 1);
 });
 
-test('workflow wait is discovered conditionally and dispatches only the status read', async t => {
+test('workflow wait is discovered conditionally from a hidden status tool and dispatches only the status read', async t => {
   const { m, client } = await fixture(t);
-  m.rpc.tools = [{ name: 'pixelbank_get_workflow_status', inputSchema: { type: 'object',
-    properties: { run_id: { type: 'string', minLength: 1 } }, required: ['run_id'], additionalProperties: false } }];
+  m.rpc.tools = [statusTool];
   const catalog = await client.listTools();
   assert.ok(catalog.tools.some(tool => tool.name === 'pixelbank_wait_for_workflow'));
+  assert.ok(!catalog.tools.some(tool => tool.name === 'pixelbank_get_workflow_status'));
   m.flags.apiBody = { data: { run_id: 'run', status: 'completed', revision: 3, pollable: false, terminal: true,
     poll_after_seconds: 0, completed_steps: 2, total_steps: 2 } };
   const result = await client.callTool({ name: 'pixelbank_wait_for_workflow', arguments: { run_id: 'run', max_wait_seconds: 1 } });
@@ -95,6 +145,20 @@ test('workflow wait is discovered conditionally and dispatches only the status r
   assert.ok(!refreshed.tools.some(tool => tool.name === 'pixelbank_wait_for_workflow'));
   const missing = await client.callTool({ name: 'pixelbank_wait_for_workflow', arguments: { run_id: 'run' } });
   assert.equal((missing.structuredContent as any).error.code, 'UNKNOWN_TOOL');
+  assert.equal(m.rpcCalls().length, 1);
+});
+
+for (const status of ['completed', 'failed']) test(`waiting the longest bound on an already ${status} run returns immediately after one read`, async t => {
+  const { m, client } = await fixture(t);
+  m.rpc.tools = [statusTool];
+  m.flags.apiBody = { data: { run_id: 'run', status, revision: 4, pollable: false, terminal: true,
+    poll_after_seconds: 0, completed_steps: status === 'completed' ? 3 : 1, total_steps: 3 } };
+  const started = Date.now();
+  const result = await client.callTool({ name: 'pixelbank_wait_for_workflow', arguments: { run_id: 'run', max_wait_seconds: 60 } });
+  assert.ok(Date.now() - started < 4000, 'a finished run must not wait for a poll interval');
+  assert.equal(result.isError, false);
+  assert.equal((result.structuredContent as any).data.status, status);
+  assert.deepEqual({ ...(result.structuredContent as any).wait, elapsed_seconds: 0 }, { reason: 'terminal', polls: 1, elapsed_seconds: 0, next_poll_after_seconds: 0 });
   assert.equal(m.rpcCalls().length, 1);
 });
 
@@ -164,7 +228,7 @@ test('credit page opens the fixed public destination without sign-in, payment in
 for (const browserUnavailable of [false, true]) test(`insufficient credits opens its fixed recovery page and preserves the refusal when browser unavailable=${browserUnavailable}`, async t => {
   const { m, client, opens, settings } = await fixture(t); settings.unavailable = browserUnavailable;
   const creditsUrl = 'https://www.pixelbankstudio.com/pricing';
-  m.rpc.tools = [{ name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  m.rpc.tools = [{ name: 'pixelbank_generate', inputSchema: { type: 'object' } }];
   m.hooks.rpc = (body, _req, res) => {
     if (body.method !== 'tools/call') return false;
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
@@ -173,8 +237,8 @@ for (const browserUnavailable of [false, true]) test(`insufficient credits opens
           recovery_url: 'https://attacker.invalid', message: 'private-provider-detail' } } },
     })); return true;
   };
-  const input = { request: { options: { prompt: 'Robot' } }, operation_key: 'original-credit-operation', maximum_credits: 5 };
-  const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: input });
+  const input = { action: 'generate_image', generate_image: { options: { prompt: 'Robot' } }, operation_key: 'original-credit-operation', maximum_credits: 5 };
+  const result = await client.callTool({ name: 'pixelbank_generate', arguments: input });
   assert.equal(result.isError, true);
   assert.deepEqual(result.structuredContent, { error: {
     code: 'NOT_ENOUGH_CREDIT', message: `There are not enough credits. Add credits at ${creditsUrl}, then ask to continue the original request.`,
@@ -189,7 +253,7 @@ for (const browserUnavailable of [false, true]) test(`insufficient credits opens
 
 test('free-use lookup, price and consent refusals keep their recovery without credit-page navigation', async t => {
   const { m, client, opens } = await fixture(t);
-  m.rpc.tools = [{ name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  m.rpc.tools = [{ name: 'pixelbank_generate', inputSchema: { type: 'object' } }];
   for (const code of ['FREE_TRIAL_UNAVAILABLE', 'CREDIT_PRICE_CHANGED', 'MCP_APPROVAL_INVALID']) {
     m.hooks.rpc = (body, _req, res) => {
       if (body.method !== 'tools/call') return false;
@@ -198,7 +262,7 @@ test('free-use lookup, price and consent refusals keep their recovery without cr
           structuredContent: { error: { code, credit_cost: 5 } } },
       })); return true;
     };
-    const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: { operation_key: code, maximum_credits: 5 } });
+    const result = await client.callTool({ name: 'pixelbank_generate', arguments: { action: 'generate_image', operation_key: code, maximum_credits: 5 } });
     assert.equal(result.isError, true); assert.equal((result.structuredContent as any).error.code, code);
     assert.equal((result.structuredContent as any).error.credits_url, undefined);
   }
@@ -207,11 +271,11 @@ test('free-use lookup, price and consent refusals keep their recovery without cr
 
 test('zero balance with a valid free-use result does not open credit recovery', async t => {
   const { m, client, opens } = await fixture(t);
-  m.rpc.tools = [{ name: 'pixelbank_get_account', inputSchema: { type: 'object' } }, { name: 'pixelbank_generate_image', inputSchema: { type: 'object' } }];
+  m.rpc.tools = [{ name: 'pixelbank_read', inputSchema: { type: 'object' } }, { name: 'pixelbank_generate', inputSchema: { type: 'object' } }];
   m.flags.apiBody = { data: { credits: 0, free_uses: { generation: 1 } } };
-  const account = await client.callTool({ name: 'pixelbank_get_account', arguments: {} });
+  const account = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'get_account' } });
   assert.equal(account.isError, false);
   m.flags.apiBody = { data: { generation_id: 'free-job', status: 'PENDING', used_free_trial: true } };
-  const result = await client.callTool({ name: 'pixelbank_generate_image', arguments: { operation_key: 'free-original', maximum_credits: 0 } });
+  const result = await client.callTool({ name: 'pixelbank_generate', arguments: { action: 'generate_image', operation_key: 'free-original', maximum_credits: 0 } });
   assert.equal(result.isError, false); assert.equal(opens.length, 0);
 });

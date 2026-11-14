@@ -5,7 +5,7 @@ import { resolveBase, validateBase } from './config.js';
 import { SafeError, Secrets } from './errors.js';
 import { openBrowser } from './oauth.js';
 import { parseUploadInput, uploadImage } from './upload.js';
-import { localTools, isInternalUploadTool, assertNoLocalOverrides } from './catalog.js';
+import { localTools, isInternalTool, assertNoLocalOverrides, refuseInternalTool, visibleRemoteTools } from './catalog.js';
 import { openPreparedWorkspace } from './workspace.js';
 import { openCreditsPage, recoverCreditShortage } from './credits.js';
 import { validateToolInput } from './input.js';
@@ -19,21 +19,21 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
   const auth = dependencies.auth ?? new Auth(base, new CredentialStore(base, profile, secrets), secrets);
   const browser = dependencies.browser ?? openBrowser;
   const server = new Server({ name: 'pixelbank', version: '0.2.3' }, { supportedProtocolVersions: ['2026-07-28', '2025-11-25'], capabilities: { tools: { listChanged: true } },
-    instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator\'s language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools.' });
+    instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Grouped tools select one operation with `action` and take its arguments in the object with the same name. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator\'s language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools.' });
   let catalog: Awaited<ReturnType<Auth['listCreativeTools']>> = [];
   server.onclose = () => { void auth.cancel(); };
+  // The full remote catalog keeps internal tools so local helpers can derive and call them.
   const discover = async (signal?: AbortSignal) => {
     const tools = await auth.listCreativeTools({ signal });
     assertNoLocalOverrides(tools);
-    return tools.filter(tool => !isInternalUploadTool(tool.name));
+    return tools;
   };
   server.setRequestHandler('tools/list', async (_request, extra) => {
     catalog = [];
     try { catalog = await discover(extra.mcpReq.signal); }
     catch (error) { if (!(error instanceof SafeError && error.code === 'AUTH_REQUIRED')) throw error; catalog = []; }
-    assertNoLocalOverrides(catalog);
     const wait = workflowWaitTool(catalog);
-    return { tools: secrets.clean([...localTools, ...catalog, ...(wait ? [wait] : [])]) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
+    return { tools: secrets.clean([...localTools, ...visibleRemoteTools(catalog), ...(wait ? [wait] : [])]) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
   });
   server.setRequestHandler('tools/call', async (request, extra) => {
     const name = request.params.name, input = request.params.arguments ?? {};
@@ -55,7 +55,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
         if (Object.keys(input).length) throw new SafeError('INVALID_INPUT', 'The credit-page control accepts no URL, payment information or arguments.');
         value = await openCreditsPage(browser);
       } else {
-        if (isInternalUploadTool(name)) throw new SafeError('UNKNOWN_TOOL', 'Use pixelbank_upload_image for an explicitly selected local image.');
+        if (isInternalTool(name)) throw refuseInternalTool(name);
         catalog = await discover(extra.mcpReq.signal);
         if (name === WORKFLOW_WAIT_TOOL) {
           const status = catalog.find(tool => tool.name === WORKFLOW_STATUS_TOOL);

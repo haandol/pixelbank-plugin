@@ -1,11 +1,17 @@
 import type { Auth } from './auth.js';
 import { SafeError } from './errors.js';
 import { UPLOAD_PURPOSES } from './upload.js';
-import { WORKSPACE_ID } from './workspace.js';
-import { WORKFLOW_WAIT_TOOL } from './workflow.js';
+import { WORKSPACE_ID, WORKSPACE_READ_TOOL } from './workspace.js';
+import { WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL } from './workflow.js';
 
 type ToolCatalog = Awaited<ReturnType<Auth['listCreativeTools']>>;
-const internalUploadTools = ['pixelbank_issue_upload', 'pixelbank_save_source'];
+/** Remote tools used only by local helpers, mapped to the model-visible replacement. */
+const internalTools = new Map([
+  ['pixelbank_issue_upload', 'pixelbank_upload_image'],
+  ['pixelbank_save_source', 'pixelbank_upload_image'],
+  [WORKSPACE_READ_TOOL, 'pixelbank_open_workspace'],
+  [WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL],
+]);
 
 export const localTools: ToolCatalog = [
   {
@@ -52,9 +58,17 @@ export const localTools: ToolCatalog = [
   },
 ];
 
-/** Upload tickets remain inside the local helper rather than the model-visible catalog. */
-export function isInternalUploadTool(name: string): boolean {
-  return internalUploadTools.includes(name);
+/** Upload, workspace and status reads stay inside local helpers rather than the model-visible catalog. */
+export function isInternalTool(name: string): boolean {
+  return internalTools.has(name);
+}
+
+export function visibleRemoteTools(tools: ToolCatalog): ToolCatalog {
+  return tools.filter(tool => !isInternalTool(tool.name));
+}
+
+export function refuseInternalTool(name: string): SafeError {
+  return new SafeError('UNKNOWN_TOOL', `This PixelbankStudio tool is used internally. Use ${internalTools.get(name)} instead.`);
 }
 
 /** A remote catalog cannot replace the bridge's connection or local-file controls. */

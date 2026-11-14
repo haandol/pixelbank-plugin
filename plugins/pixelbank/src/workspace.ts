@@ -4,6 +4,7 @@ import type { openBrowser } from './oauth.js';
 import type { RemoteOptions } from './remote.js';
 
 export const WORKSPACE_ID = /^[a-f0-9]{64}$/;
+export const WORKSPACE_READ_TOOL = 'pixelbank_get_workspace';
 
 interface WorkspaceDependencies {
   auth: Pick<Auth, 'callCreativeTool'>;
@@ -24,7 +25,7 @@ export async function openPreparedWorkspace(
     !WORKSPACE_ID.test(input.workspace_id)
   )
     throw new SafeError('INVALID_INPUT', 'An owned prepared workspace identity is required.');
-  let value = await auth.callCreativeTool('pixelbank_get_workspace', input, options);
+  let value = await auth.callCreativeTool(WORKSPACE_READ_TOOL, input, options);
   const data = value.data as { url?: unknown } | undefined;
   const url = validateWorkspaceURL(data?.url, base, input.workspace_id);
   if (secrets.contains(url))

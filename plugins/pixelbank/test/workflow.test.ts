@@ -67,6 +67,15 @@ test('a slow throttle refusal still retains retry-after when the wait deadline h
   assert.equal(reads, 2);
 });
 
+test('an already completed run returns at once without pausing, even at the longest wait', async () => {
+  let reads = 0;
+  const result = await waitForWorkflow({ callCreativeTool: async () => { reads++; return state('completed', 5); } }, tool,
+    { run_id: 'run', max_wait_seconds: 60 }, {}, { now: () => 0, sleep: async () => { assert.fail('finished run was paused'); } });
+  assert.equal(reads, 1);
+  assert.equal((result.data as any).status, 'completed');
+  assert.deepEqual(result.wait, { reason: 'terminal', polls: 1, elapsed_seconds: 0, next_poll_after_seconds: 0 });
+});
+
 test('failed and input-ready workflows return without polling or a creative write', async () => {
   for (const status of ['failed', 'active']) {
     let reads = 0;

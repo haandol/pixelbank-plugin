@@ -43281,10 +43281,11 @@ async function uploadImage(auth, base, input, signal) {
 
 // src/workspace.ts
 var WORKSPACE_ID = /^[a-f0-9]{64}$/;
+var WORKSPACE_READ_TOOL = "pixelbank_get_workspace";
 async function openPreparedWorkspace({ auth, browser, base, secrets }, input, options) {
   if (Object.keys(input).length !== 1 || typeof input.workspace_id !== "string" || !WORKSPACE_ID.test(input.workspace_id))
     throw new SafeError("INVALID_INPUT", "An owned prepared workspace identity is required.");
-  let value = await auth.callCreativeTool("pixelbank_get_workspace", input, options);
+  let value = await auth.callCreativeTool(WORKSPACE_READ_TOOL, input, options);
   const data = value.data;
   const url = validateWorkspaceURL(data?.url, base, input.workspace_id);
   if (secrets.contains(url))
@@ -43422,7 +43423,12 @@ async function waitForWorkflow(auth, statusTool, input, options = {}, timer = cl
 }
 
 // src/catalog.ts
-var internalUploadTools = ["pixelbank_issue_upload", "pixelbank_save_source"];
+var internalTools = new Map([
+  ["pixelbank_issue_upload", "pixelbank_upload_image"],
+  ["pixelbank_save_source", "pixelbank_upload_image"],
+  [WORKSPACE_READ_TOOL, "pixelbank_open_workspace"],
+  [WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL]
+]);
 var localTools = [
   {
     name: "pixelbank_upload_image",
@@ -43464,8 +43470,14 @@ var localTools = [
     }
   }
 ];
-function isInternalUploadTool(name) {
-  return internalUploadTools.includes(name);
+function isInternalTool(name) {
+  return internalTools.has(name);
+}
+function visibleRemoteTools(tools) {
+  return tools.filter((tool) => !isInternalTool(tool.name));
+}
+function refuseInternalTool(name) {
+  return new SafeError("UNKNOWN_TOOL", `This PixelbankStudio tool is used internally. Use ${internalTools.get(name)} instead.`);
 }
 function assertNoLocalOverrides(tools) {
   if (tools.some((tool) => tool.name === WORKFLOW_WAIT_TOOL || localTools.some((local) => local.name === tool.name))) {
@@ -43482,7 +43494,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   const server = new Server({ name: "pixelbank", version: "0.2.3" }, {
     supportedProtocolVersions: ["2026-07-28", "2025-11-25"],
     capabilities: { tools: { listChanged: true } },
-    instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator's language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools."
+    instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Grouped tools select one operation with `action` and take its arguments in the object with the same name. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator's language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools."
   });
   let catalog = [];
   server.onclose = () => {
@@ -43491,7 +43503,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   const discover = async (signal) => {
     const tools = await auth.listCreativeTools({ signal });
     assertNoLocalOverrides(tools);
-    return tools.filter((tool) => !isInternalUploadTool(tool.name));
+    return tools;
   };
   server.setRequestHandler("tools/list", async (_request, extra) => {
     catalog = [];
@@ -43502,9 +43514,8 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
         throw error;
       catalog = [];
     }
-    assertNoLocalOverrides(catalog);
     const wait = workflowWaitTool(catalog);
-    return { tools: secrets.clean([...localTools, ...catalog, ...wait ? [wait] : []]), ttlMs: 0, cacheScope: "private" };
+    return { tools: secrets.clean([...localTools, ...visibleRemoteTools(catalog), ...wait ? [wait] : []]), ttlMs: 0, cacheScope: "private" };
   });
   server.setRequestHandler("tools/call", async (request, extra) => {
     const name = request.params.name, input = request.params.arguments ?? {};
@@ -43528,8 +43539,8 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
           throw new SafeError("INVALID_INPUT", "The credit-page control accepts no URL, payment information or arguments.");
         value = await openCreditsPage(browser);
       } else {
-        if (isInternalUploadTool(name))
-          throw new SafeError("UNKNOWN_TOOL", "Use pixelbank_upload_image for an explicitly selected local image.");
+        if (isInternalTool(name))
+          throw refuseInternalTool(name);
         catalog = await discover(extra.mcpReq.signal);
         if (name === WORKFLOW_WAIT_TOOL) {
           const status = catalog.find((tool) => tool.name === WORKFLOW_STATUS_TOOL);
