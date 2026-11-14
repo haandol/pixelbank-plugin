@@ -89,4 +89,20 @@ assert.equal(info.contractsSha256, await hash('contracts/tools.json'));
 const tools = await read('plugins/pixelbank/contracts/tools.json');
 assert(tools.tools.length > 0, 'The public tool catalog must not be empty');
 assert.equal(new Set(tools.tools.map(tool => tool.name)).size, tools.tools.length);
+// The packaged contract must be exactly the grouped catalog the skill teaches, so a stale snapshot cannot ship.
+const skill = await readFile(resolve(plugin, 'skills/creative-workflows/SKILL.md'), 'utf8');
+const table = new Map([...skill.matchAll(/^\| `(pixelbank_[a-z_]+)` \| (.+) \|$/gm)]
+  .map(([, name, cell]) => [name, [...cell.matchAll(/`([a-z_]+)`/g)].map(match => match[1]).sort()]));
+assert(table.size > 0, 'The creative-workflows skill must list its grouped tools and actions');
+const { internalToolNames } = await import('../plugins/pixelbank/src/catalog.ts');
+const expectedNames = [...table.keys(), 'pixelbank_execute_workflow', ...internalToolNames].sort();
+const contractNames = tools.tools.map(tool => tool.name).sort();
+const retired = [...table.values()].flat().map(action => `pixelbank_${action}`).filter(name => contractNames.includes(name));
+assert.deepEqual(retired, [], `The packaged contract still names retired per-operation tools: ${retired.join(', ')}`);
+assert.deepEqual(contractNames, expectedNames, 'The packaged contract must contain exactly the grouped tool set from the skill');
+for (const tool of tools.tools) {
+  const actions = tool.inputSchema?.properties?.action?.enum;
+  if (table.has(tool.name)) assert.deepEqual([...actions ?? []].sort(), table.get(tool.name), `${tool.name} actions must match the skill's action table`);
+  else assert.equal(actions, undefined, `${tool.name} is not a grouped tool and must not take an action`);
+}
 console.log(`PixelbankStudio Plugin ${pkg.version}: marketplace, package, host manifests and ${tools.tools.length} tool contracts agree.`);

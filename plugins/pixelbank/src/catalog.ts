@@ -12,6 +12,7 @@ const internalTools = new Map([
   [WORKSPACE_READ_TOOL, 'pixelbank_open_workspace'],
   [WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL],
 ]);
+export const internalToolNames: readonly string[] = [...internalTools.keys()];
 
 export const localTools: ToolCatalog = [
   {

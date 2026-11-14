@@ -43446,6 +43446,7 @@ var internalTools = new Map([
   [WORKSPACE_READ_TOOL, "pixelbank_open_workspace"],
   [WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL]
 ]);
+var internalToolNames = [...internalTools.keys()];
 var localTools = [
   {
     name: "pixelbank_upload_image",
