@@ -28,7 +28,8 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`portable bun
   const client = new Client({ name: 'fixture-host', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });
   t.after(() => client.close()); await client.connect(transport, { timeout: 10_000 });
   const catalog = await client.listTools(); assert.ok(catalog.tools.some(t => t.name === 'pixelbank_read'));
-  assert.ok(catalog.tools.some(t => t.name === 'pixelbank_wait_for_workflow'));
+  const read = catalog.tools.find(t => t.name === 'pixelbank_read')!;
+  assert.deepEqual((read.inputSchema.properties!.action as any).enum, ['get_account', 'wait_for_workflow', 'open_workspace']);
   assert.ok(!catalog.tools.some(t => ['pixelbank_get_workspace', 'pixelbank_get_workflow_status'].includes(t.name)));
   const account = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'get_account' } });
   assert.deepEqual(account.structuredContent, m.flags.apiBody);
@@ -43,11 +44,11 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`portable bun
   const streamed = await client.callTool({ name: 'pixelbank_read', arguments: { action: 'get_account' } }, { onprogress: progress => { progressSeen = true; assert.equal(progress.message, undefined); assert.equal(progress.progress, 1); } });
   assert.equal(progressSeen, true); assert.deepEqual(streamed.structuredContent, m.flags.apiBody);
   delete m.hooks.rpc;
-  const connection = await client.callTool({ name: 'pixelbank_connect', arguments: {} });
+  const connection = await client.callTool({ name: 'pixelbank_connection', arguments: { action: 'connect' } });
   assert.equal((connection.structuredContent as any).data.status, 'connected');
-  const disconnected = await client.callTool({ name: 'pixelbank_disconnect', arguments: {} });
+  const disconnected = await client.callTool({ name: 'pixelbank_connection', arguments: { action: 'disconnect' } });
   assert.equal((disconnected.structuredContent as any).data.status, 'disconnected'); assert.equal(await m.read(), undefined);
-  assert.equal((await client.listTools()).tools.length, 5);
+  assert.deepEqual((await client.listTools()).tools.map(tool => tool.name), ['pixelbank_connection']);
   await client.close(); assert.equal(stderr, '');
 });
 
@@ -56,7 +57,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   await cp('dist', join(isolated, 'bundle'), { recursive: true });
   await assert.rejects(access(join(isolated, 'node_modules')));
   const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
-  const name = 'pixelbank_generate';
+  const name = 'pixelbank_run';
   m.rpc.tools = [{ name, inputSchema: { type: 'object' } }];
   const transport = new StdioClientTransport({ command: process.execPath, args: [join(isolated, 'bundle', 'index.js')], cwd: isolated, stderr: 'pipe', env: {
     PATH: process.env.PATH!, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host', PIXELBANK_CREDENTIALS_DIR: m.directory,
@@ -153,7 +154,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   const isolated = await tempDirectory(); t.after(() => rm(isolated, { recursive: true, force: true }));
   await cp('dist', join(isolated, 'bundle'), { recursive: true });
   const m = await mock(); t.after(() => m.close()); m.flags.signedAccess = true; await m.login();
-  m.rpc.tools = [{ name: 'pixelbank_generate', inputSchema: { type: 'object' } }];
+  m.rpc.tools = [{ name: 'pixelbank_run', inputSchema: { type: 'object' } }];
   m.hooks.rpc = (body, _req, res) => {
     if (body.method !== 'tools/call') return false;
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
@@ -172,7 +173,7 @@ for (const protocol of ['2026-07-28', '2025-11-25'] as const) test(`built ${prot
   const client = new Client({ name: 'credit-recovery-regression', version: '1' }, { supportedProtocolVersions: [protocol], versionNegotiation: { mode: protocol === '2026-07-28' ? { pin: protocol } : 'legacy' } });
   t.after(() => client.close()); await client.connect(transport, { timeout: 10_000 });
   const input = { action: 'generate_image', generate_image: { options: { prompt: 'Robot' } }, operation_key: 'original-shortfall', maximum_credits: 5 };
-  const result = await client.callTool({ name: 'pixelbank_generate', arguments: input });
+  const result = await client.callTool({ name: 'pixelbank_run', arguments: input });
   assert.equal(result.isError, true);
   assert.deepEqual(result.structuredContent, { error: {
     code: 'NOT_ENOUGH_CREDIT', message: 'There are not enough credits. Add credits at https://www.pixelbankstudio.com/pricing, then ask to continue the original request.',

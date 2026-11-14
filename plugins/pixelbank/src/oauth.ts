@@ -9,7 +9,7 @@ import { object, requestJson, serviceUrl } from './http.js';
 
 const callbackUrl = new URL(REDIRECT_URI);
 const callbackPort = Number(callbackUrl.port);
-const verificationUnavailable = () => new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connect to start or resume verification; use pixelbank_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat creative operations.');
+const verificationUnavailable = () => new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connection action connect to start or resume verification; use pixelbank_connection action disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat creative operations.');
 
 export function proof() {
   const verifier = randomBytes(32).toString('base64url');
@@ -25,9 +25,9 @@ export function authorizationUrl(config: OAuthConfig, values: ReturnType<typeof 
 }
 export async function openBrowser(url: string) {
   const command = process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : undefined;
-  if (!command) throw new SafeError('BROWSER_UNAVAILABLE', 'Automatic browser sign-in requires macOS or Linux. Use a supported local desktop and pixelbank_connect when the creator wants to sign in; never copy tokens or callback URLs into the assistant.');
+  if (!command) throw new SafeError('BROWSER_UNAVAILABLE', 'Automatic browser sign-in requires macOS or Linux. Use a supported local desktop and pixelbank_connection action connect when the creator wants to sign in; never copy tokens or callback URLs into the assistant.');
   try { await promisify(execFile)(command, [url], { timeout: 5_000, maxBuffer: 4096 }); }
-  catch { throw new SafeError('BROWSER_UNAVAILABLE', 'The sign-in browser could not be opened. Ask the local operator to restore the default browser launcher in this desktop session, then use pixelbank_connect if the creator still wants to sign in. Never copy tokens or callback URLs.'); }
+  catch { throw new SafeError('BROWSER_UNAVAILABLE', 'The sign-in browser could not be opened. Ask the local operator to restore the default browser launcher in this desktop session, then use pixelbank_connection action connect if the creator still wants to sign in. Never copy tokens or callback URLs.'); }
 }
 export async function callback(state: string, signal: AbortSignal, timeoutMs = 180_000, issuer?: { value: string; required: boolean }) {
   let resolveCode!: (code: string) => void;
@@ -39,7 +39,7 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
   const fail = (error: SafeError) => rejectCode(error);
   const close = () => { for (const server of servers) { server.close(); server.closeAllConnections(); } };
   const abort = () => fail(authCancelled());
-  const timer = setTimeout(() => fail(new SafeError('AUTH_TIMEOUT', 'Browser sign-in timed out. If the creator still wants to connect, run pixelbank_connect for a fresh browser flow and complete it before the timeout; do not reuse the old callback.')), timeoutMs);
+  const timer = setTimeout(() => fail(new SafeError('AUTH_TIMEOUT', 'Browser sign-in timed out. If the creator still wants to connect, run pixelbank_connection action connect for a fresh browser flow and complete it before the timeout; do not reuse the old callback.')), timeoutMs);
   signal.addEventListener('abort', abort, { once: true });
   try {
     for (const host of ['127.0.0.1', '::1']) {
@@ -61,7 +61,7 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
         const received = url.searchParams.get('state') ?? '';
         if (url.searchParams.getAll('state').length !== 1 || Buffer.byteLength(received) !== Buffer.byteLength(state) ||
             !timingSafeEqual(Buffer.from(received), Buffer.from(state))) {
-          res.writeHead(400).end('Invalid sign-in state.'); fail(new SafeError('OAUTH_STATE_MISMATCH', 'The browser callback did not match this sign-in attempt. If the creator still wants to connect, start a fresh flow with pixelbank_connect and use only its browser window; never reuse or copy callback data.')); return;
+          res.writeHead(400).end('Invalid sign-in state.'); fail(new SafeError('OAUTH_STATE_MISMATCH', 'The browser callback did not match this sign-in attempt. If the creator still wants to connect, start a fresh flow with pixelbank_connection action connect and use only its browser window; never reuse or copy callback data.')); return;
         }
         const returnedIssuer = url.searchParams.get('iss');
         if (issuer && (url.searchParams.getAll('iss').length > 1 || (returnedIssuer !== null && returnedIssuer !== issuer.value) || (issuer.required && returnedIssuer === null))) {
@@ -69,7 +69,7 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
         }
         const value = url.searchParams.get('code');
         if (url.searchParams.has('error') || url.searchParams.getAll('code').length !== 1 || !value || value.length > 4096) {
-          res.writeHead(400).end('Sign-in was not completed.'); fail(new SafeError('AUTH_DENIED', 'Browser sign-in was denied or incomplete. Wait for the creator to choose to sign in, then start a fresh flow with pixelbank_connect; do not retry automatically.')); return;
+          res.writeHead(400).end('Sign-in was not completed.'); fail(new SafeError('AUTH_DENIED', 'Browser sign-in was denied or incomplete. Wait for the creator to choose to sign in, then start a fresh flow with pixelbank_connection action connect; do not retry automatically.')); return;
         }
         res.end('Sign-in callback received. Return to your assistant to check the connection.');
         resolveCode(value);
@@ -79,7 +79,7 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
         await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(callbackPort, host, resolve); });
       } catch (error) {
         if (host === '::1' && ['EAFNOSUPPORT', 'EADDRNOTAVAIL'].includes((error as NodeJS.ErrnoException).code ?? '')) continue;
-        throw new SafeError('CALLBACK_PORT_BUSY', `The local sign-in callback could not listen on port ${callbackPort}. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry pixelbank_connect only once the port is available; do not stop unrelated processes.`);
+        throw new SafeError('CALLBACK_PORT_BUSY', `The local sign-in callback could not listen on port ${callbackPort}. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry pixelbank_connection action connect only once the port is available; do not stop unrelated processes.`);
       }
     }
   } catch (error) { clearTimeout(timer); signal.removeEventListener('abort', abort); close(); throw error; }
@@ -98,9 +98,9 @@ export async function tokenRequest(config: OAuthConfig, form: Record<string, str
   secrets.add(data.access_token, data.refresh_token, data.id_token);
   if (status !== 200) {
     if (data.error === 'invalid_grant') throw new SafeError('OAUTH_INVALID_GRANT', form.grant_type === 'refresh_token'
-      ? 'The stored refresh authorization is no longer usable. Run pixelbank_connect for same-account browser recovery and complete any requested cleanup before creative work resumes.'
-      : 'The browser sign-in authorization is no longer usable. If the creator still wants to connect, run pixelbank_connect for a fresh browser flow with the same account if recovering a previous connection. Do not reuse the old callback or repeat a creative operation.');
-    throw new SafeError('OAUTH_TOKEN_FAILED', 'Sign-in credentials could not be obtained or refreshed. Do not repeat a creative operation. After service access is restored, run pixelbank_disconnect for retained cleanup; use pixelbank_connect for same-account recovery when reauthenticationRequired is reported. If it persists, ask the operator to check sign-in configuration.');
+      ? 'The stored refresh authorization is no longer usable. Run pixelbank_connection action connect for same-account browser recovery and complete any requested cleanup before creative work resumes.'
+      : 'The browser sign-in authorization is no longer usable. If the creator still wants to connect, run pixelbank_connection action connect for a fresh browser flow with the same account if recovering a previous connection. Do not reuse the old callback or repeat a creative operation.');
+    throw new SafeError('OAUTH_TOKEN_FAILED', 'Sign-in credentials could not be obtained or refreshed. Do not repeat a creative operation. After service access is restored, run pixelbank_connection action disconnect for retained cleanup; use pixelbank_connection action connect for same-account recovery when reauthenticationRequired is reported. If it persists, ask the operator to check sign-in configuration.');
   }
   await checkpoint?.({ accessToken: typeof data.access_token === 'string' ? data.access_token : undefined,
     refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : undefined,
@@ -131,7 +131,7 @@ export async function discoveryKeys(config: OAuthConfig): Promise<URL> {
     return jwksUrl;
   } catch (error) {
     if (error instanceof SafeError && ['NETWORK_ERROR', 'OAUTH_VERIFICATION_UNAVAILABLE'].includes(error.code)) throw error;
-    throw new SafeError('INVALID_ID_TOKEN', 'Sign-in discovery did not match the configured issuer and endpoints. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connect; preserve any cleanup records and do not substitute endpoints.');
+    throw new SafeError('INVALID_ID_TOKEN', 'Sign-in discovery did not match the configured issuer and endpoints. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connection action connect; preserve any cleanup records and do not substitute endpoints.');
   }
 }
 export async function verifyIdentity(config: OAuthConfig, idToken: string | undefined, nonce?: string) {
@@ -149,7 +149,7 @@ export async function verifyIdentity(config: OAuthConfig, idToken: string | unde
         payload.iat! > Date.now() / 1000 + 5 || payload.exp! <= payload.iat! || payload.exp! - payload.iat! > 3600) throw new Error();
     return payload.sub;
   } catch (error) {
-    if (error instanceof SafeError && error.code === 'OAUTH_VERIFICATION_UNAVAILABLE') throw new SafeError(error.code, 'Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connect to resume the saved verification flow; use pixelbank_disconnect to cancel and clean up. Do not bypass verification or repeat creative operations.');
+    if (error instanceof SafeError && error.code === 'OAUTH_VERIFICATION_UNAVAILABLE') throw new SafeError(error.code, 'Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connection action connect to resume the saved verification flow; use pixelbank_connection action disconnect to cancel and clean up. Do not bypass verification or repeat creative operations.');
     if (error instanceof SafeError && error.code === 'NETWORK_ERROR') throw error;
     throw new SafeError('INVALID_ID_TOKEN', `Account identity proof failed signature, issuer, audience, or nonce validation. ${authCleanup}`);
   }
@@ -158,5 +158,5 @@ export async function verifyIdentity(config: OAuthConfig, idToken: string | unde
 export async function revoke(config: OAuthConfig, refreshToken: string) {
   const { status } = await requestJson(config.revocationEndpoint, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: config.clientId, token: refreshToken, token_type_hint: 'refresh_token' }) });
-  if (status < 200 || status >= 300) throw new SafeError('REVOCATION_FAILED', 'Sign-in authorization revocation was not confirmed. Run pixelbank_disconnect after service access is restored to retry pending cleanup; ask the operator if it persists. Preserve credential records and do not claim complete revocation.');
+  if (status < 200 || status >= 300) throw new SafeError('REVOCATION_FAILED', 'Sign-in authorization revocation was not confirmed. Run pixelbank_connection action disconnect after service access is restored to retry pending cleanup; ask the operator if it persists. Preserve credential records and do not claim complete revocation.');
 }

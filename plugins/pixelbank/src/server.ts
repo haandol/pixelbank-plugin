@@ -4,12 +4,12 @@ import { CredentialStore } from './store.js';
 import { resolveBase, validateBase } from './config.js';
 import { SafeError, Secrets } from './errors.js';
 import { openBrowser } from './oauth.js';
-import { parseUploadInput, uploadImage } from './upload.js';
-import { localTools, isInternalTool, assertNoLocalOverrides, refuseInternalTool, visibleRemoteTools } from './catalog.js';
-import { openPreparedWorkspace } from './workspace.js';
+import { actionNames, advertisedTools, assertNoLocalOverrides, CONNECTION_ACTIONS, CONNECTION_TOOL, isInternalTool, refuseInternalTool, retiredLocalTool,
+  retiredRemoteTool, visibleRemoteTools } from './catalog.js';
+import { runLocalAction } from './local.js';
 import { openCreditsPage, recoverCreditShortage } from './credits.js';
 import { validateToolInput } from './input.js';
-import { workflowWaitTool, waitForWorkflow, WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL } from './workflow.js';
+import { apiError } from './api-errors.js';
 export { validateWorkspaceURL } from './workspace.js';
 
 /** The local server bridges only the authenticated remote catalog and local connection actions. */
@@ -19,7 +19,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
   const auth = dependencies.auth ?? new Auth(base, new CredentialStore(base, profile, secrets), secrets);
   const browser = dependencies.browser ?? openBrowser;
   const server = new Server({ name: 'pixelbank', version: '0.3.0' }, { supportedProtocolVersions: ['2026-07-28', '2025-11-25'], capabilities: { tools: { listChanged: true } },
-    instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Grouped tools select one operation with `action` and take its arguments in the object with the same name. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator\'s language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools.' });
+    instructions: 'Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Each tool selects one operation with `action` and takes its arguments in `arguments`. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator\'s language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Read exact action arguments with the pixelbank_read action describe. Connect with pixelbank_connection before discovering account tools.' });
   let catalog: Awaited<ReturnType<Auth['listCreativeTools']>> = [];
   server.onclose = () => { void auth.cancel(); };
   // The full remote catalog keeps internal tools so local helpers can derive and call them.
@@ -32,8 +32,7 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
     catalog = [];
     try { catalog = await discover(extra.mcpReq.signal); }
     catch (error) { if (!(error instanceof SafeError && error.code === 'AUTH_REQUIRED')) throw error; catalog = []; }
-    const wait = workflowWaitTool(catalog);
-    return { tools: secrets.clean([...localTools, ...visibleRemoteTools(catalog), ...(wait ? [wait] : [])]) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
+    return { tools: secrets.clean(advertisedTools(catalog)) as typeof catalog, ttlMs: 0, cacheScope: 'private' as const };
   });
   server.setRequestHandler('tools/call', async (request, extra) => {
     const name = request.params.name, input = request.params.arguments ?? {};
@@ -43,28 +42,29 @@ export function createServer(profile = process.env.PIXELBANK_AUTH_SCOPE ?? 'stan
     } };
     let value: Record<string, unknown>;
     try {
-      if (name === 'pixelbank_connect' || name === 'pixelbank_disconnect') {
-        if (Object.keys(input).length) throw new SafeError('INVALID_INPUT', 'Connection controls accept no credentials or arguments.');
-        value = name === 'pixelbank_connect' ? await auth.connect() : await auth.disconnect();
-        await server.notification({ method: 'notifications/tools/list_changed' }).catch(() => {});
-      } else if (name === 'pixelbank_upload_image') {
-        value = await uploadImage(auth, base, parseUploadInput(input), extra.mcpReq.signal);
-      } else if (name === 'pixelbank_open_workspace') {
-        value = await openPreparedWorkspace({ auth, browser, base, secrets }, input, options);
-      } else if (name === 'pixelbank_open_credits_page') {
-        if (Object.keys(input).length) throw new SafeError('INVALID_INPUT', 'The credit-page control accepts no URL, payment information or arguments.');
-        value = await openCreditsPage(browser);
+      if (name === CONNECTION_TOOL) {
+        if (Object.keys(input).some(key => key !== 'action') || !CONNECTION_ACTIONS.includes(input.action as never))
+          throw new SafeError('INVALID_ARGUMENTS', `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(', ')}) and accepts no credentials, URLs, payment information or other arguments.`,
+            undefined, { tool: CONNECTION_TOOL, location: Object.keys(input).some(key => key !== 'action') ? '/' : '/action' });
+        if (input.action === 'open_credits_page') value = await openCreditsPage(browser);
+        else {
+          value = input.action === 'connect' ? await auth.connect() : await auth.disconnect();
+          await server.notification({ method: 'notifications/tools/list_changed' }).catch(() => {});
+        }
       } else {
+        const retired = retiredLocalTool(name);
+        if (retired) throw retired;
         if (isInternalTool(name)) throw refuseInternalTool(name);
         catalog = await discover(extra.mcpReq.signal);
-        if (name === WORKFLOW_WAIT_TOOL) {
-          const status = catalog.find(tool => tool.name === WORKFLOW_STATUS_TOOL);
-          if (!status) throw new SafeError('UNKNOWN_TOOL', 'Workflow status is unavailable in the current catalog.');
-          value = await waitForWorkflow(auth, status, input, options);
-        } else {
-          const tool = catalog.find(tool => tool.name === name);
-          if (!tool) throw new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
-          validateToolInput(tool, input);
+        const local = await runLocalAction({ auth, browser, base, secrets, catalog }, name, input, options);
+        if (local) value = local;
+        else {
+          const tool = visibleRemoteTools(catalog).find(tool => tool.name === name);
+          if (!tool) throw retiredRemoteTool(name, catalog) ?? new SafeError('UNKNOWN_TOOL', 'This tool is not available in the authenticated PixelbankStudio catalog.');
+          const actions = actionNames(advertisedTools(catalog).find(entry => entry.name === name)!);
+          if (actions.length && !actions.includes(input.action as string))
+            throw apiError(400, 'INVALID_ACTION', undefined, undefined, { tool: name, actions });
+          validateToolInput(tool, input, { tool: name, action: typeof input.action === 'string' ? input.action : undefined });
           value = await auth.callCreativeTool(name, input, options);
         }
       }

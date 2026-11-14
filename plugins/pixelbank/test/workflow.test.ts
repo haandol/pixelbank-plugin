@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { waitForWorkflow, workflowWaitTool, WORKFLOW_STATUS_TOOL } from '../src/workflow.js';
+import { waitForWorkflow, waitArgumentsSchema, WORKFLOW_STATUS_TOOL } from '../src/workflow.js';
 import { validateToolInput } from '../src/input.js';
 import { SafeError } from '../src/errors.js';
 
@@ -13,12 +13,12 @@ const state = (status = 'running', revision = 1) => ({ data: { run_id: 'run', st
 
 test('live schema validation rejects wrong types and unknown fields without coercing input', () => {
   const input = { run_id: 4 };
-  assert.throws(() => validateToolInput(tool, input), { code: 'INVALID_INPUT' });
+  assert.throws(() => validateToolInput(tool, input), { code: 'INVALID_ARGUMENTS', hints: { location: '/run_id' } });
   assert.deepEqual(input, { run_id: 4 });
-  assert.throws(() => validateToolInput(tool, { run_id: 'run', owner: 'another' }), { code: 'INVALID_INPUT' });
+  assert.throws(() => validateToolInput(tool, { run_id: 'run', owner: 'another' }), { code: 'INVALID_ARGUMENTS', hints: { location: '/' } });
   const changed = { ...tool, inputSchema: { ...tool.inputSchema, required: ['run_id', 'revision'],
     properties: { ...tool.inputSchema.properties, revision: { type: 'integer', minimum: 1 } } } };
-  assert.throws(() => validateToolInput(changed, { run_id: 'run' }), { code: 'INVALID_INPUT' });
+  assert.throws(() => validateToolInput(changed, { run_id: 'run' }), { code: 'INVALID_ARGUMENTS' });
   validateToolInput(changed, { run_id: 'run', revision: 2 });
 });
 
@@ -93,6 +93,7 @@ test('wait cancellation and invalid status never change the accepted workflow', 
   assert.equal(reads, 1);
   await assert.rejects(waitForWorkflow({ callCreativeTool: async () => ({ data: { ...state().data, run_id: 'foreign' } }) }, tool,
     { run_id: 'run' }), { code: 'INVALID_RESPONSE' });
-  assert.equal(workflowWaitTool([]), undefined);
-  assert.throws(() => validateToolInput(workflowWaitTool([tool])!, { run_id: 'run', max_wait_seconds: 0 }), { code: 'INVALID_INPUT' });
+  assert.throws(() => validateToolInput({ name: tool.name, inputSchema: waitArgumentsSchema(tool) }, { run_id: 'run', max_wait_seconds: 0 }),
+    { code: 'INVALID_ARGUMENTS', hints: { location: '/max_wait_seconds' } });
+  assert.throws(() => waitArgumentsSchema({ name: tool.name, inputSchema: { type: 'object', properties: { id: { type: 'string' } } } }), { code: 'INVALID_CATALOG' });
 });

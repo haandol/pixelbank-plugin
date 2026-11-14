@@ -148,7 +148,7 @@ test('a separately launched MCP process resumes persisted previous-grant cleanup
     env: { PATH: process.env.PATH ?? '', PIXELBANK_CREDENTIALS_DIR: m.directory, PIXELBANK_API_BASE_URL: m.base, PIXELBANK_AUTH_SCOPE: 'mock-host' }, stderr: 'pipe' });
   transport.stderr?.on('data', (chunk: Buffer) => { stderr += chunk; });
   const client = new Client({ name: 'mock-host', version: '1.0.0' }); t.after(() => client.close()); await client.connect(transport);
-  const result = await client.callTool({ name: 'pixelbank_connect', arguments: {} });
+  const result = await client.callTool({ name: 'pixelbank_connection', arguments: { action: 'connect' } });
   assert.equal((result.structuredContent as any).data.status, 'connected');
   assert.ok(m.revokedFamilies.has(previous.connectionId!)); assert.equal(m.counts.exchange, 2);
   for (const token of m.issued) assert.ok(!JSON.stringify(result).includes(token));

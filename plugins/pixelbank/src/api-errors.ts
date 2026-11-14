@@ -1,7 +1,7 @@
-import { SafeError, uncertainOutcome } from './errors.js';
+import { SafeError, invalidArgumentsMessage, uncertainOutcome } from './errors.js';
 import { CREDITS_PAGE_URL } from './credits.js';
 const messages: Record<string, string> = {
- AUTH_REQUIRED: 'PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connect to resume retained setup or recovery, or pixelbank_disconnect to finish cleanup. Preserve credential records.',
+ AUTH_REQUIRED: 'PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connection action connect to resume retained setup or recovery, or pixelbank_connection action disconnect to finish cleanup. Preserve credential records.',
  CONNECTION_INACTIVE: 'This connection has been revoked. Reconnect with the same account before using creative tools.',
  CONNECTION_FORBIDDEN: 'The granted scopes do not permit this operation.',
  ASSET_NOT_FOUND: 'The requested image is unavailable. Refresh the library or choose another image.',
@@ -14,8 +14,10 @@ const messages: Record<string, string> = {
  WORKFLOW_CONFLICT: 'The workflow changed. Reload its acknowledged state before choosing the next action.',
  WORKSPACE_CONFLICT: 'This workspace preparation conflicts with an existing request or newer workflow revision.',
  WORKSPACE_UNAVAILABLE: 'The prepared workspace or one of its owned source assets is unavailable.',
- INVALID_INPUT: 'PixelbankStudio refused this call before doing any work because its arguments did not match the tool contract. Correct the arguments and send the call again; when expected_property is present, put the selected action\'s arguments in the object with that name and add no other action\'s object.',
- INVALID_ACTION: 'PixelbankStudio refused this call before doing any work because it did not name an available action. Correct the call and send it again with action set to one of the listed actions of the tool, and its arguments in the object with the same name.',
+ INVALID_ARGUMENTS: invalidArgumentsMessage,
+ INVALID_INPUT: `PixelbankStudio refused this request (INVALID_INPUT). ${uncertainOutcome}`,
+ INVALID_ACTION: 'PixelbankStudio refused this call before doing any work because it did not name an available action. Correct the call and send it again with action set to one of the listed actions of the tool and its arguments in arguments.',
+ TOOL_RETIRED: 'This PixelbankStudio tool name is retired and nothing was run. Call the named replacement tool and action instead.',
 };
 export function apiError(status: number, code: string, headerPause?: number, structuredPause?: unknown, details: Record<string, unknown> = {}): SafeError {
  if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code)) code = 'API_ERROR';

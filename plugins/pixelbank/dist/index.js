@@ -24398,15 +24398,15 @@ var DEFAULT_MAX_REQUEST_BODY_SIZE = 4 * 1024 * 1024;
 
 // src/errors.ts
 var identifier = (value) => typeof value === "string" && /^[a-z_]{1,64}$/.test(value);
+var pointer = (value) => typeof value === "string" && value.length <= 256 && /^\/$|^(\/([A-Za-z_][A-Za-z0-9_]{0,63}|[0-9]{1,6}))+$/.test(value);
+var toolName = (value) => identifier(value) && value.startsWith("pixelbank_");
 
 class SafeError extends Error {
   code;
   retryAfterSeconds;
   credit_cost;
   retry_same_command;
-  expected_property;
-  tool;
-  actions;
+  hints = {};
   constructor(code, message, retryAfterSeconds, details = {}) {
     super(message);
     this.code = code;
@@ -24415,19 +24415,27 @@ class SafeError extends Error {
       this.credit_cost = details.credit_cost;
     if (typeof details.retry_same_command === "boolean")
       this.retry_same_command = details.retry_same_command;
-    if (identifier(details.expected_property))
-      this.expected_property = details.expected_property;
-    if (identifier(details.tool) && details.tool.startsWith("pixelbank_"))
-      this.tool = details.tool;
+    if (toolName(details.tool))
+      this.hints.tool = details.tool;
+    if (identifier(details.action))
+      this.hints.action = details.action;
     const actions = details.actions;
     if (Array.isArray(actions) && actions.length > 0 && actions.length <= 64 && actions.every(identifier))
-      this.actions = [...actions];
+      this.hints.actions = [...actions];
+    if (pointer(details.location))
+      this.hints.location = details.location;
+    if (identifier(details.problem))
+      this.hints.problem = details.problem;
+    const replacement = details.replacement;
+    if (replacement && typeof replacement === "object" && toolName(replacement.tool))
+      this.hints.replacement = { tool: replacement.tool, ...identifier(replacement.action) ? { action: replacement.action } : {} };
   }
 }
 var uncertainOutcome = "A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in PixelbankStudio first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.";
-var authCleanup = "Run pixelbank_disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the creator still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.";
+var invalidArgumentsMessage = "PixelbankStudio refused this call before doing any work because its arguments did not match the action's exact schema. Describe the action with pixelbank_read action describe if needed, correct the argument at the reported location and send the call again.";
+var authCleanup = "Run pixelbank_connection action disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use pixelbank_connection action connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the creator still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.";
 var storageRecovery = "Ask the local operator to restore safe access while preserving credential and lock files, which may retain pending revocation. Do not copy tokens, change the credential scope to bypass cleanup, or keep retrying before repair.";
-var authCancelled = () => new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
+var authCancelled = () => new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without creator intent. Run pixelbank_connection action disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
 function safeError(error) {
   if (error instanceof SafeError)
     return { error: {
@@ -24436,11 +24444,9 @@ function safeError(error) {
       ...error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds },
       ...error.credit_cost === undefined ? {} : { credit_cost: error.credit_cost },
       ...error.retry_same_command === undefined ? {} : { retry_same_command: error.retry_same_command },
-      ...error.expected_property === undefined ? {} : { expected_property: error.expected_property },
-      ...error.tool === undefined ? {} : { tool: error.tool },
-      ...error.actions === undefined ? {} : { actions: [...error.actions] }
+      ...structuredClone(error.hints)
     } };
-  return { error: { code: "INTERNAL_ERROR", message: `The plugin could not complete the operation for an unclassified reason. Ask the local operator to inspect the plugin before retrying. ${uncertainOutcome} Preserve credential and lock files; use pixelbank_disconnect for pending cleanup when storage is usable.` } };
+  return { error: { code: "INTERNAL_ERROR", message: `The plugin could not complete the operation for an unclassified reason. Ask the local operator to inspect the plugin before retrying. ${uncertainOutcome} Preserve credential and lock files; use pixelbank_connection action disconnect for pending cleanup when storage is usable.` } };
 }
 
 class Secrets {
@@ -24644,11 +24650,11 @@ function validateOAuth(input, base) {
   const data = object2(input);
   for (const key of ["issuer", "clientId", "authorizationEndpoint", "tokenEndpoint", "revocationEndpoint", "resource"]) {
     if (typeof data[key] !== "string" || !data[key] || /\s/.test(data[key]))
-      throw new SafeError("INVALID_CONFIG", "Sign-in configuration is missing or has invalid required fields. Ask the PixelbankStudio operator to repair the configuration, then retry pixelbank_connect; do not supply tokens or substitute endpoints.");
+      throw new SafeError("INVALID_CONFIG", "Sign-in configuration is missing or has invalid required fields. Ask the PixelbankStudio operator to repair the configuration, then retry pixelbank_connection action connect; do not supply tokens or substitute endpoints.");
   }
   const allowedScopes = new Set(["openid", `${data.resource}/studio.read`, `${data.resource}/studio.write`, `${data.resource}/studio.execute`]);
   if (data.redirectUri !== REDIRECT_URI || !Array.isArray(data.scopes) || !data.scopes.includes("openid") || !data.scopes.includes(`${data.resource}/studio.read`) || new Set(data.scopes).size !== data.scopes.length || !data.scopes.every((scope) => typeof scope === "string" && allowedScopes.has(scope))) {
-    throw new SafeError("INVALID_CONFIG", "Sign-in requires openid, resource/studio.read, optional resource/studio.write, and the exact registered loopback redirect. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connect; do not bypass scope or callback checks.");
+    throw new SafeError("INVALID_CONFIG", "Sign-in requires openid, resource/studio.read, optional resource/studio.write, and the exact registered loopback redirect. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connection action connect; do not bypass scope or callback checks.");
   }
   const local = base !== DEFAULT_BASE;
   try {
@@ -24668,7 +24674,7 @@ function validateOAuth(input, base) {
     if ([data.tokenEndpoint, data.revocationEndpoint].some((url) => new URL(url).origin !== authOrigin))
       throw new Error;
   } catch {
-    throw new SafeError("INVALID_CONFIG", "Sign-in endpoints failed trust validation. Stop sign-in and ask the PixelbankStudio operator to repair the configuration before retrying pixelbank_connect; do not bypass validation or substitute endpoints.");
+    throw new SafeError("INVALID_CONFIG", "Sign-in endpoints failed trust validation. Stop sign-in and ask the PixelbankStudio operator to repair the configuration before retrying pixelbank_connection action connect; do not bypass validation or substitute endpoints.");
   }
   return data;
 }
@@ -24676,10 +24682,10 @@ async function bootstrap(base) {
   base = validateBase(base);
   const { status, body } = await requestJson(`${base}/config`);
   if (status !== 200)
-    throw new SafeError("CONFIG_UNAVAILABLE", "PixelbankStudio sign-in configuration could not be loaded. Retry pixelbank_connect after service access is restored; ask the PixelbankStudio operator if it persists. Do not substitute endpoints or credentials.");
+    throw new SafeError("CONFIG_UNAVAILABLE", "PixelbankStudio sign-in configuration could not be loaded. Retry pixelbank_connection action connect after service access is restored; ask the PixelbankStudio operator if it persists. Do not substitute endpoints or credentials.");
   const data = object2(body);
   if (data.apiVersion !== "1")
-    throw new SafeError("API_VERSION_UNSUPPORTED", "This plugin requires PixelbankStudio API version 1, but the service did not advertise it. Ask the operator to install a compatible plugin and service before retrying pixelbank_connect.");
+    throw new SafeError("API_VERSION_UNSUPPORTED", "This plugin requires PixelbankStudio API version 1, but the service did not advertise it. Ask the operator to install a compatible plugin and service before retrying pixelbank_connection action connect.");
   return validateOAuth(data.oauth, base);
 }
 
@@ -24711,7 +24717,7 @@ async function recoverCreditShortage(error, browser) {
 
 // src/api-errors.ts
 var messages = {
-  AUTH_REQUIRED: "PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connect to resume retained setup or recovery, or pixelbank_disconnect to finish cleanup. Preserve credential records.",
+  AUTH_REQUIRED: "PixelbankStudio rejected authorization. Ask the PixelbankStudio operator to repair configuration or authorization before retrying. Repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use pixelbank_connection action connect to resume retained setup or recovery, or pixelbank_connection action disconnect to finish cleanup. Preserve credential records.",
   CONNECTION_INACTIVE: "This connection has been revoked. Reconnect with the same account before using creative tools.",
   CONNECTION_FORBIDDEN: "The granted scopes do not permit this operation.",
   ASSET_NOT_FOUND: "The requested image is unavailable. Refresh the library or choose another image.",
@@ -24724,8 +24730,10 @@ var messages = {
   WORKFLOW_CONFLICT: "The workflow changed. Reload its acknowledged state before choosing the next action.",
   WORKSPACE_CONFLICT: "This workspace preparation conflicts with an existing request or newer workflow revision.",
   WORKSPACE_UNAVAILABLE: "The prepared workspace or one of its owned source assets is unavailable.",
-  INVALID_INPUT: "PixelbankStudio refused this call before doing any work because its arguments did not match the tool contract. Correct the arguments and send the call again; when expected_property is present, put the selected action's arguments in the object with that name and add no other action's object.",
-  INVALID_ACTION: "PixelbankStudio refused this call before doing any work because it did not name an available action. Correct the call and send it again with action set to one of the listed actions of the tool, and its arguments in the object with the same name."
+  INVALID_ARGUMENTS: invalidArgumentsMessage,
+  INVALID_INPUT: `PixelbankStudio refused this request (INVALID_INPUT). ${uncertainOutcome}`,
+  INVALID_ACTION: "PixelbankStudio refused this call before doing any work because it did not name an available action. Correct the call and send it again with action set to one of the listed actions of the tool and its arguments in arguments.",
+  TOOL_RETIRED: "This PixelbankStudio tool name is retired and nothing was run. Call the named replacement tool and action instead."
 };
 function apiError(status, code, headerPause, structuredPause, details = {}) {
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code))
@@ -24791,7 +24799,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 var callbackUrl = new URL(REDIRECT_URI);
 var callbackPort = Number(callbackUrl.port);
-var verificationUnavailable = () => new SafeError("OAUTH_VERIFICATION_UNAVAILABLE", "Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connect to start or resume verification; use pixelbank_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat creative operations.");
+var verificationUnavailable = () => new SafeError("OAUTH_VERIFICATION_UNAVAILABLE", "Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connection action connect to start or resume verification; use pixelbank_connection action disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat creative operations.");
 function proof() {
   const verifier = randomBytes(32).toString("base64url");
   return { verifier, challenge: createHash("sha256").update(verifier).digest("base64url"), state: randomBytes(32).toString("base64url"), nonce: randomBytes(32).toString("base64url") };
@@ -24816,11 +24824,11 @@ function authorizationUrl(config, values, forceLogin = false) {
 async function openBrowser(url) {
   const command = process.platform === "darwin" ? "open" : process.platform === "linux" ? "xdg-open" : undefined;
   if (!command)
-    throw new SafeError("BROWSER_UNAVAILABLE", "Automatic browser sign-in requires macOS or Linux. Use a supported local desktop and pixelbank_connect when the creator wants to sign in; never copy tokens or callback URLs into the assistant.");
+    throw new SafeError("BROWSER_UNAVAILABLE", "Automatic browser sign-in requires macOS or Linux. Use a supported local desktop and pixelbank_connection action connect when the creator wants to sign in; never copy tokens or callback URLs into the assistant.");
   try {
     await promisify(execFile)(command, [url], { timeout: 5000, maxBuffer: 4096 });
   } catch {
-    throw new SafeError("BROWSER_UNAVAILABLE", "The sign-in browser could not be opened. Ask the local operator to restore the default browser launcher in this desktop session, then use pixelbank_connect if the creator still wants to sign in. Never copy tokens or callback URLs.");
+    throw new SafeError("BROWSER_UNAVAILABLE", "The sign-in browser could not be opened. Ask the local operator to restore the default browser launcher in this desktop session, then use pixelbank_connection action connect if the creator still wants to sign in. Never copy tokens or callback URLs.");
   }
 }
 async function callback(state, signal, timeoutMs = 180000, issuer) {
@@ -24840,7 +24848,7 @@ async function callback(state, signal, timeoutMs = 180000, issuer) {
     }
   };
   const abort = () => fail(authCancelled());
-  const timer = setTimeout(() => fail(new SafeError("AUTH_TIMEOUT", "Browser sign-in timed out. If the creator still wants to connect, run pixelbank_connect for a fresh browser flow and complete it before the timeout; do not reuse the old callback.")), timeoutMs);
+  const timer = setTimeout(() => fail(new SafeError("AUTH_TIMEOUT", "Browser sign-in timed out. If the creator still wants to connect, run pixelbank_connection action connect for a fresh browser flow and complete it before the timeout; do not reuse the old callback.")), timeoutMs);
   signal.addEventListener("abort", abort, { once: true });
   try {
     for (const host of ["127.0.0.1", "::1"]) {
@@ -24872,7 +24880,7 @@ async function callback(state, signal, timeoutMs = 180000, issuer) {
         const received = url.searchParams.get("state") ?? "";
         if (url.searchParams.getAll("state").length !== 1 || Buffer.byteLength(received) !== Buffer.byteLength(state) || !timingSafeEqual(Buffer.from(received), Buffer.from(state))) {
           res.writeHead(400).end("Invalid sign-in state.");
-          fail(new SafeError("OAUTH_STATE_MISMATCH", "The browser callback did not match this sign-in attempt. If the creator still wants to connect, start a fresh flow with pixelbank_connect and use only its browser window; never reuse or copy callback data."));
+          fail(new SafeError("OAUTH_STATE_MISMATCH", "The browser callback did not match this sign-in attempt. If the creator still wants to connect, start a fresh flow with pixelbank_connection action connect and use only its browser window; never reuse or copy callback data."));
           return;
         }
         const returnedIssuer = url.searchParams.get("iss");
@@ -24884,7 +24892,7 @@ async function callback(state, signal, timeoutMs = 180000, issuer) {
         const value = url.searchParams.get("code");
         if (url.searchParams.has("error") || url.searchParams.getAll("code").length !== 1 || !value || value.length > 4096) {
           res.writeHead(400).end("Sign-in was not completed.");
-          fail(new SafeError("AUTH_DENIED", "Browser sign-in was denied or incomplete. Wait for the creator to choose to sign in, then start a fresh flow with pixelbank_connect; do not retry automatically."));
+          fail(new SafeError("AUTH_DENIED", "Browser sign-in was denied or incomplete. Wait for the creator to choose to sign in, then start a fresh flow with pixelbank_connection action connect; do not retry automatically."));
           return;
         }
         res.end("Sign-in callback received. Return to your assistant to check the connection.");
@@ -24899,7 +24907,7 @@ async function callback(state, signal, timeoutMs = 180000, issuer) {
       } catch (error) {
         if (host === "::1" && ["EAFNOSUPPORT", "EADDRNOTAVAIL"].includes(error.code ?? ""))
           continue;
-        throw new SafeError("CALLBACK_PORT_BUSY", `The local sign-in callback could not listen on port ${callbackPort}. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry pixelbank_connect only once the port is available; do not stop unrelated processes.`);
+        throw new SafeError("CALLBACK_PORT_BUSY", `The local sign-in callback could not listen on port ${callbackPort}. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry pixelbank_connection action connect only once the port is available; do not stop unrelated processes.`);
       }
     }
   } catch (error) {
@@ -24928,8 +24936,8 @@ async function tokenRequest(config, form, secrets, checkpoint) {
   secrets.add(data.access_token, data.refresh_token, data.id_token);
   if (status !== 200) {
     if (data.error === "invalid_grant")
-      throw new SafeError("OAUTH_INVALID_GRANT", form.grant_type === "refresh_token" ? "The stored refresh authorization is no longer usable. Run pixelbank_connect for same-account browser recovery and complete any requested cleanup before creative work resumes." : "The browser sign-in authorization is no longer usable. If the creator still wants to connect, run pixelbank_connect for a fresh browser flow with the same account if recovering a previous connection. Do not reuse the old callback or repeat a creative operation.");
-    throw new SafeError("OAUTH_TOKEN_FAILED", "Sign-in credentials could not be obtained or refreshed. Do not repeat a creative operation. After service access is restored, run pixelbank_disconnect for retained cleanup; use pixelbank_connect for same-account recovery when reauthenticationRequired is reported. If it persists, ask the operator to check sign-in configuration.");
+      throw new SafeError("OAUTH_INVALID_GRANT", form.grant_type === "refresh_token" ? "The stored refresh authorization is no longer usable. Run pixelbank_connection action connect for same-account browser recovery and complete any requested cleanup before creative work resumes." : "The browser sign-in authorization is no longer usable. If the creator still wants to connect, run pixelbank_connection action connect for a fresh browser flow with the same account if recovering a previous connection. Do not reuse the old callback or repeat a creative operation.");
+    throw new SafeError("OAUTH_TOKEN_FAILED", "Sign-in credentials could not be obtained or refreshed. Do not repeat a creative operation. After service access is restored, run pixelbank_connection action disconnect for retained cleanup; use pixelbank_connection action connect for same-account recovery when reauthenticationRequired is reported. If it persists, ask the operator to check sign-in configuration.");
   }
   await checkpoint?.({
     accessToken: typeof data.access_token === "string" ? data.access_token : undefined,
@@ -24964,7 +24972,7 @@ async function discoveryKeys(config) {
   } catch (error) {
     if (error instanceof SafeError && ["NETWORK_ERROR", "OAUTH_VERIFICATION_UNAVAILABLE"].includes(error.code))
       throw error;
-    throw new SafeError("INVALID_ID_TOKEN", "Sign-in discovery did not match the configured issuer and endpoints. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connect; preserve any cleanup records and do not substitute endpoints.");
+    throw new SafeError("INVALID_ID_TOKEN", "Sign-in discovery did not match the configured issuer and endpoints. Ask the PixelbankStudio operator to repair configuration before retrying pixelbank_connection action connect; preserve any cleanup records and do not substitute endpoints.");
   }
 }
 async function verifyIdentity(config, idToken, nonce) {
@@ -24989,7 +24997,7 @@ async function verifyIdentity(config, idToken, nonce) {
     return payload.sub;
   } catch (error) {
     if (error instanceof SafeError && error.code === "OAUTH_VERIFICATION_UNAVAILABLE")
-      throw new SafeError(error.code, "Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connect to resume the saved verification flow; use pixelbank_disconnect to cancel and clean up. Do not bypass verification or repeat creative operations.");
+      throw new SafeError(error.code, "Account identity verification is temporarily unavailable. After service access is restored, run pixelbank_connection action connect to resume the saved verification flow; use pixelbank_connection action disconnect to cancel and clean up. Do not bypass verification or repeat creative operations.");
     if (error instanceof SafeError && error.code === "NETWORK_ERROR")
       throw error;
     throw new SafeError("INVALID_ID_TOKEN", `Account identity proof failed signature, issuer, audience, or nonce validation. ${authCleanup}`);
@@ -25002,7 +25010,7 @@ async function revoke(config, refreshToken) {
     body: new URLSearchParams({ client_id: config.clientId, token: refreshToken, token_type_hint: "refresh_token" })
   });
   if (status < 200 || status >= 300)
-    throw new SafeError("REVOCATION_FAILED", "Sign-in authorization revocation was not confirmed. Run pixelbank_disconnect after service access is restored to retry pending cleanup; ask the operator if it persists. Preserve credential records and do not claim complete revocation.");
+    throw new SafeError("REVOCATION_FAILED", "Sign-in authorization revocation was not confirmed. Run pixelbank_connection action disconnect after service access is restored to retry pending cleanup; ask the operator if it persists. Preserve credential records and do not claim complete revocation.");
 }
 
 // src/privacy.ts
@@ -41477,7 +41485,7 @@ async function callRemoteTool(base, token, name, input, options = {}) {
 }
 
 // src/connection.ts
-var authenticationPending = () => ({ data: { status: "authentication_pending", message: "Finish browser sign-in, then run pixelbank_connect to check progress; use pixelbank_disconnect to cancel." } });
+var authenticationPending = () => ({ data: { status: "authentication_pending", message: "Finish browser sign-in, then run pixelbank_connection action connect to check progress; use pixelbank_connection action disconnect to cancel." } });
 var fullCleanup = () => ({ backend: true, provider: true });
 var hasCleanup = (g) => !!(g.cleanup?.backend || g.cleanup?.provider);
 var needsLogin = (g) => !!g.cleanup?.backend && (!g.accessToken || g.refreshInvalid || (g.refreshExpiresAt ?? Infinity) <= Date.now() || !g.refreshToken && g.expiresAt <= Date.now());
@@ -41525,7 +41533,7 @@ class Connection {
       }
     }
     if (value && this.grants(value).some(hasCleanup) && !this.grants(value).some(needsLogin)) {
-      throw new SafeError("CLEANUP_REQUIRED", "The previous connection still needs cleanup. Run pixelbank_disconnect before pixelbank_connect. If cleanup reports reauthenticationRequired, connect with the same account to recover it; otherwise wait for cleanup to complete before signing in.");
+      throw new SafeError("CLEANUP_REQUIRED", "The previous connection still needs cleanup. Run pixelbank_connection action disconnect before pixelbank_connection action connect. If cleanup reports reauthenticationRequired, connect with the same account to recover it; otherwise wait for cleanup to complete before signing in.");
     }
     if (value && this.grants(value).some(hasCleanup) && !value.subject) {
       throw new SafeError("OWNER_UNKNOWN", "The previous connection has no verified owner. Ask an operator to reconcile the retained cleanup records before reconnecting; do not choose a replacement account, copy tokens, or delete credential or lock files.");
@@ -41589,7 +41597,7 @@ class Connection {
       providerPending: grants.some((g) => g.cleanup?.provider),
       reauthenticationRequired,
       message: [
-        failure ? safeError(failure).error.message : reauthenticationRequired ? "Cleanup needs fresh authorization. Run pixelbank_connect and have the creator sign in to the same account to recover previous connection cleanup." : value.recovery && !value.recovery.discard ? "Recovery is saved. Run pixelbank_connect to resume it after the reported problem is resolved, or pixelbank_disconnect to cancel and finish cleanup." : "Connection cleanup is pending. Run pixelbank_disconnect after the reported problem is resolved; if cleanup still cannot proceed, ask the operator to reconcile the retained records.",
+        failure ? safeError(failure).error.message : reauthenticationRequired ? "Cleanup needs fresh authorization. Run pixelbank_connection action connect and have the creator sign in to the same account to recover previous connection cleanup." : value.recovery && !value.recovery.discard ? "Recovery is saved. Run pixelbank_connection action connect to resume it after the reported problem is resolved, or pixelbank_connection action disconnect to cancel and finish cleanup." : "Connection cleanup is pending. Run pixelbank_connection action disconnect after the reported problem is resolved; if cleanup still cannot proceed, ask the operator to reconcile the retained records.",
         "Creative access remains disabled. Preserve credential and lock files; do not claim complete revocation until disconnected."
       ].filter(Boolean).join(" ")
     } };
@@ -41600,10 +41608,10 @@ class Connection {
       root.status = "disabled";
       root.cleanup ??= fullCleanup();
       await this.tx.save(root);
-      throw new SafeError("OAUTH_INVALID_GRANT", "The original one-day authorization has expired. Use pixelbank_connect for same-account browser recovery and retained cleanup.");
+      throw new SafeError("OAUTH_INVALID_GRANT", "The original one-day authorization has expired. Use pixelbank_connection action connect for same-account browser recovery and retained cleanup.");
     }
     if (!grant.refreshToken || grant.refreshInvalid)
-      throw new SafeError("OAUTH_INVALID_GRANT", "The stored connection has no usable refresh authorization. Run pixelbank_connect and have the creator sign in to the same account to recover pending cleanup before creative work resumes.");
+      throw new SafeError("OAUTH_INVALID_GRANT", "The stored connection has no usable refresh authorization. Run pixelbank_connection action connect and have the creator sign in to the same account to recover pending cleanup before creative work resumes.");
     const previousStatus = root.status;
     const previousCleanup = root.cleanup;
     root.status = "pending";
@@ -41629,7 +41637,7 @@ class Connection {
       root.status = "disabled";
       await this.tx.save(root);
       if (error instanceof SafeError && error.code === "OAUTH_VERIFICATION_UNAVAILABLE") {
-        throw new SafeError(error.code, "Account identity verification is temporarily unavailable during connection refresh. After verification service access is restored, run pixelbank_disconnect to finish retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Preserve cleanup records; do not bypass verification or repeat creative operations.");
+        throw new SafeError(error.code, "Account identity verification is temporarily unavailable during connection refresh. After verification service access is restored, run pixelbank_connection action disconnect to finish retained cleanup. If it reports reauthenticationRequired, use pixelbank_connection action connect for same-account browser recovery. Preserve cleanup records; do not bypass verification or repeat creative operations.");
       }
       throw error;
     }
@@ -41638,7 +41646,7 @@ class Connection {
     if (grant.expiresAt <= Date.now() + 30000)
       await this.refresh(root, grant);
     if (!grant.accessToken || grant.expiresAt <= Date.now())
-      throw new SafeError("OAUTH_INVALID_GRANT", "The connection has no usable access authorization after refresh. Run pixelbank_connect for same-account recovery and complete pending cleanup before resuming creative work.");
+      throw new SafeError("OAUTH_INVALID_GRANT", "The connection has no usable access authorization after refresh. Run pixelbank_connection action connect for same-account recovery and complete pending cleanup before resuming creative work.");
   }
   async verifyCandidate(value) {
     const candidate = value.recovery;
@@ -41664,7 +41672,7 @@ class Connection {
   confirmRevoked(result, grant) {
     const data = object2(result);
     if (data.status !== "revoked" || typeof data.connectionId !== "string" || !data.connectionId || grant.connectionId && data.connectionId !== grant.connectionId)
-      throw new SafeError("INVALID_CONNECTION", "PixelbankStudio did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_disconnect after service recovery; ask the PixelbankStudio operator if confirmation still fails. Do not claim the connection is revoked.");
+      throw new SafeError("INVALID_CONNECTION", "PixelbankStudio did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_connection action disconnect after service recovery; ask the PixelbankStudio operator if confirmation still fails. Do not claim the connection is revoked.");
   }
   async previousConnectionId(root, grant) {
     if (grant.connectionId !== undefined) {
@@ -41711,7 +41719,7 @@ class Connection {
   async revokeProvider(root, grant) {
     const cleanup = grant.cleanup ??= fullCleanup();
     if (cleanup.backend)
-      throw new SafeError("CLEANUP_REQUIRED", "PixelbankStudio connection revocation is still pending. Run pixelbank_disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connect with the same account. Sign-in cleanup can finish only after PixelbankStudio confirms revocation.");
+      throw new SafeError("CLEANUP_REQUIRED", "PixelbankStudio connection revocation is still pending. Run pixelbank_connection action disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connection action connect with the same account. Sign-in cleanup can finish only after PixelbankStudio confirms revocation.");
     delete grant.accessToken;
     grant.expiresAt = 0;
     await this.tx.save(root);
@@ -41835,7 +41843,7 @@ class Connection {
   async authenticated(input, operation) {
     const value = await this.tx.load();
     if (!value || value.status !== "active")
-      throw new SafeError("AUTH_REQUIRED", "No active local connection is available. Run pixelbank_connect and complete or check browser sign-in before using creative tools. If cleanup is required, run pixelbank_disconnect; use same-account recovery when requested.");
+      throw new SafeError("AUTH_REQUIRED", "No active local connection is available. Run pixelbank_connection action connect and complete or check browser sign-in before using creative tools. If cleanup is required, run pixelbank_connection action disconnect; use same-account recovery when requested.");
     filterExternalInput(input, this.secrets);
     JSON.stringify(input, (key, item) => {
       filterExternalInput(key, this.secrets);
@@ -41867,7 +41875,7 @@ class Connection {
       if (error instanceof SafeError && error.code === "AUTH_REQUIRED") {
         value.expiresAt = 0;
         await this.tx.save(value);
-        throw new SafeError(error.code, "PixelbankStudio rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connect recovery instructions. Never copy tokens or bypass sign-in.");
+        throw new SafeError(error.code, "PixelbankStudio rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connection action connect recovery instructions. Never copy tokens or bypass sign-in.");
       }
       if (error instanceof SafeError && error.code === "CONNECTION_INACTIVE") {
         value.status = "disabled";
@@ -42040,7 +42048,7 @@ class CredentialStore {
     }
     const assertLock = () => {
       if (compromised)
-        throw new SafeError("AUTH_LOCK_LOST", "The connection lock was lost; credential updates and any write outcome may be uncertain. Stop creative calls and ask the local operator to resolve competing processes and inspect storage. Preserve lock and credential files; after repair, check existing results and use pixelbank_disconnect for retained cleanup.");
+        throw new SafeError("AUTH_LOCK_LOST", "The connection lock was lost; credential updates and any write outcome may be uncertain. Stop creative calls and ask the local operator to resolve competing processes and inspect storage. Preserve lock and credential files; after repair, check existing results and use pixelbank_connection action disconnect for retained cleanup.");
     };
     const transaction = {
       load: () => storageIO("read the private connection record", async () => {
@@ -43341,38 +43349,35 @@ function validateWorkspaceURL(value, _base, workspaceId) {
 import { setTimeout as delay } from "timers/promises";
 
 // src/input.ts
-function validateToolInput(tool, input) {
-  let valid;
+function validateToolInput(tool, input, context = {}) {
+  let result;
   try {
     const validator = new AjvJsonSchemaValidator;
-    valid = validator.getValidator(tool.inputSchema)(input).valid;
+    result = validator.getValidator(tool.inputSchema)(input);
   } catch {
     throw new SafeError("INVALID_CATALOG", "The current tool schema could not be validated. Refresh the service catalog.");
   }
-  if (!valid)
-    throw new SafeError("INVALID_INPUT", "The input does not match the current tool contract. Check required fields, types and allowed values.");
+  if (!result.valid)
+    throw invalidArguments(`${context.prefix ?? ""}${firstLocation(result.errorMessage)}`, context);
+}
+function invalidArguments(location, { tool, action, problem } = {}) {
+  return new SafeError("INVALID_ARGUMENTS", invalidArgumentsMessage, undefined, { location: location || "/", tool, action, problem });
+}
+function firstLocation(message = "") {
+  return /^data(\/\S*?)?(?=[\s,]|$)/.exec(message)?.[1] ?? "";
 }
 
 // src/workflow.ts
 var WORKFLOW_STATUS_TOOL = "pixelbank_get_workflow_status";
-var WORKFLOW_WAIT_TOOL = "pixelbank_wait_for_workflow";
 var defaultWaitSeconds = 30;
 var maximumWaitSeconds = 60;
 var minimumPollSeconds = 5;
-function workflowWaitTool(tools) {
-  const status = tools.find((tool) => tool.name === WORKFLOW_STATUS_TOOL);
-  if (!status)
-    return;
+function waitArgumentsSchema(status) {
   const schema = structuredClone(status.inputSchema);
   if (!schema.properties || !Object.hasOwn(schema.properties, "run_id") || Object.hasOwn(schema.properties, "max_wait_seconds"))
     throw new SafeError("INVALID_CATALOG", "The workflow status contract cannot be used for a bounded wait.");
   schema.properties.max_wait_seconds = { type: "integer", minimum: 1, maximum: maximumWaitSeconds, default: defaultWaitSeconds };
-  return {
-    name: WORKFLOW_WAIT_TOOL,
-    description: "Wait briefly for an accepted PixelbankStudio workflow using read-only status checks. Follow the returned poll delay if still running. This never starts, retries or cancels creative processing.",
-    inputSchema: schema,
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
-  };
+  return schema;
 }
 var clock = { now: Date.now, sleep: async (ms, signal) => {
   await delay(ms, undefined, { signal });
@@ -43384,10 +43389,7 @@ function workflowStatus(envelope, runId) {
   return value;
 }
 async function waitForWorkflow(auth, statusTool, input, options = {}, timer = clock) {
-  const wait = workflowWaitTool([statusTool]);
-  if (!wait)
-    throw new SafeError("UNKNOWN_TOOL", "Workflow status is unavailable in the current catalog.");
-  validateToolInput(wait, input);
+  validateToolInput({ name: WORKFLOW_STATUS_TOOL, inputSchema: waitArgumentsSchema(statusTool) }, input);
   const { max_wait_seconds: requested = defaultWaitSeconds, ...arguments_ } = input;
   validateToolInput(statusTool, arguments_);
   const start = timer.now(), deadline = start + Number(requested) * 1000;
@@ -43440,67 +43442,196 @@ async function waitForWorkflow(auth, statusTool, input, options = {}, timer = cl
 }
 
 // src/catalog.ts
+var CONNECTION_TOOL = "pixelbank_connection";
+var READ_TOOL = "pixelbank_read";
+var EDIT_TOOL = "pixelbank_edit";
+var DESCRIBE_ACTION = "describe";
+var ARGUMENTS_FIELD = "arguments";
+var UPLOAD_TICKET_TOOL = "pixelbank_issue_upload";
+var CONNECTION_ACTIONS = ["connect", "disconnect", "open_credits_page"];
 var internalTools = new Map([
-  ["pixelbank_issue_upload", "pixelbank_upload_image"],
-  ["pixelbank_save_source", "pixelbank_upload_image"],
-  [WORKSPACE_READ_TOOL, "pixelbank_open_workspace"],
-  [WORKFLOW_STATUS_TOOL, WORKFLOW_WAIT_TOOL]
+  [UPLOAD_TICKET_TOOL, `${EDIT_TOOL} action upload_image`],
+  ["pixelbank_save_source", `${EDIT_TOOL} action upload_image`],
+  [WORKSPACE_READ_TOOL, `${READ_TOOL} action open_workspace`],
+  [WORKFLOW_STATUS_TOOL, `${READ_TOOL} action wait_for_workflow`]
 ]);
 var internalToolNames = [...internalTools.keys()];
-var localTools = [
+var localActions = [
   {
-    name: "pixelbank_upload_image",
-    description: "Upload an explicitly selected local PNG, JPEG or WebP image to PixelbankStudio. Use workflow-input and save_source=true to prepare a persistent web-workspace source.",
-    inputSchema: {
+    tool: READ_TOOL,
+    action: "wait_for_workflow",
+    requires: WORKFLOW_STATUS_TOOL,
+    summary: "Wait up to 60 seconds for an accepted workflow run with read-only status checks; a finished run returns at once.",
+    schema: (catalog) => waitArgumentsSchema(catalog.find((tool) => tool.name === WORKFLOW_STATUS_TOOL))
+  },
+  {
+    tool: READ_TOOL,
+    action: "open_workspace",
+    requires: WORKSPACE_READ_TOOL,
+    summary: "Open an owned prepared web workspace in the default browser; never starts processing.",
+    schema: () => ({
+      type: "object",
+      properties: { workspace_id: { type: "string", pattern: WORKSPACE_ID.source } },
+      required: ["workspace_id"],
+      additionalProperties: false
+    })
+  },
+  {
+    tool: EDIT_TOOL,
+    action: "upload_image",
+    requires: UPLOAD_TICKET_TOOL,
+    summary: "Upload one explicitly selected local PNG, JPEG or WebP image; workflow-input with save_source=true keeps a persistent source.",
+    schema: () => ({
       type: "object",
       properties: {
-        file_path: { type: "string" },
+        file_path: { type: "string", minLength: 1 },
         purpose: { type: "string", enum: [...UPLOAD_PURPOSES] },
         save_source: { type: "boolean" }
       },
       required: ["file_path", "purpose"],
       additionalProperties: false
-    }
-  },
-  {
-    name: "pixelbank_connect",
-    description: "Connect PixelbankStudio through browser sign-in, or check a sign-in already in progress.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false }
-  },
-  {
-    name: "pixelbank_disconnect",
-    description: "Revoke this PixelbankStudio connection and remove its local credentials. Accepted creative jobs retain their existing lifecycle.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false }
-  },
-  {
-    name: "pixelbank_open_credits_page",
-    description: "Open the PixelbankStudio credit purchase page in the default browser. Opening never selects a plan, pays, adds credits or retries processing.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false }
-  },
-  {
-    name: "pixelbank_open_workspace",
-    description: "Open an owned prepared PixelbankStudio workspace in the default browser. Opening applies initial settings and never starts paid processing.",
-    inputSchema: {
-      type: "object",
-      properties: { workspace_id: { type: "string", pattern: WORKSPACE_ID.source } },
-      required: ["workspace_id"],
-      additionalProperties: false
-    }
+    })
   }
 ];
+var connectionTool = {
+  name: CONNECTION_TOOL,
+  description: "Manage the PixelbankStudio connection. Actions: connect (browser sign-in, or check one in progress), " + "disconnect (revoke this connection and remove local credentials; accepted jobs continue), open_credits_page " + "(open the credit purchase page; never pays, adds credits or retries processing). Each action takes action alone.",
+  inputSchema: {
+    type: "object",
+    properties: { action: { type: "string", enum: [...CONNECTION_ACTIONS] } },
+    required: ["action"],
+    additionalProperties: false
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
+};
+var retiredLocalTools = new Map([
+  ["pixelbank_connect", [CONNECTION_TOOL, "connect"]],
+  ["pixelbank_disconnect", [CONNECTION_TOOL, "disconnect"]],
+  ["pixelbank_open_credits_page", [CONNECTION_TOOL, "open_credits_page"]],
+  ...localActions.map((local) => [`pixelbank_${local.action}`, [local.tool, local.action]])
+]);
+function retiredLocalTool(name) {
+  const replacement = retiredLocalTools.get(name);
+  return replacement && retiredTool(...replacement);
+}
+function retiredRemoteTool(name, catalog) {
+  const action = name.slice("pixelbank_".length);
+  const owner = visibleRemoteTools(catalog).find((tool) => actionNames(tool).includes(action));
+  return owner && retiredTool(owner.name, action);
+}
+function retiredTool(tool, action) {
+  return new SafeError("TOOL_RETIRED", `This PixelbankStudio tool name is retired and nothing was run. Call ${tool} with action ${action} instead.`, undefined, { replacement: { tool, action } });
+}
 function isInternalTool(name) {
   return internalTools.has(name);
-}
-function visibleRemoteTools(tools) {
-  return tools.filter((tool) => !isInternalTool(tool.name));
 }
 function refuseInternalTool(name) {
   return new SafeError("UNKNOWN_TOOL", `This PixelbankStudio tool is used internally. Use ${internalTools.get(name)} instead.`);
 }
+function visibleRemoteTools(tools) {
+  return tools.filter((tool) => !isInternalTool(tool.name));
+}
+function actionNames(tool) {
+  const values = tool.inputSchema.properties?.action?.enum;
+  return Array.isArray(values) ? values.filter((value) => typeof value === "string") : [];
+}
+function availableLocalActions(catalog) {
+  return localActions.filter((local) => catalog.some((tool) => tool.name === local.tool) && catalog.some((tool) => tool.name === local.requires));
+}
+function findLocalAction(tool, action, catalog) {
+  return availableLocalActions(catalog).find((local) => local.tool === tool && local.action === action);
+}
 function assertNoLocalOverrides(tools) {
-  if (tools.some((tool) => tool.name === WORKFLOW_WAIT_TOOL || localTools.some((local) => local.name === tool.name))) {
-    throw new SafeError("INVALID_CATALOG", "Remote tools cannot replace connection controls.");
+  const shadowed = tools.some((tool) => tool.name === CONNECTION_TOOL || retiredLocalTools.has(tool.name) || localActions.some((local) => local.tool === tool.name && actionNames(tool).includes(local.action)));
+  if (shadowed)
+    throw new SafeError("INVALID_CATALOG", "Remote tools cannot replace connection controls or local actions.");
+}
+function outline(local, catalog) {
+  const schema = local.schema(catalog), required = schema.required ?? [];
+  const fields = Object.keys(schema.properties ?? {}).sort().map((name) => required.includes(name) ? name : `${name}?`);
+  return `${local.action}{${fields.join(",")}}`;
+}
+function advertisedTools(catalog) {
+  const locals = availableLocalActions(catalog);
+  const remote = visibleRemoteTools(catalog).map((tool) => {
+    const added = locals.filter((local) => local.tool === tool.name);
+    if (!added.length)
+      return tool;
+    const schema = structuredClone(tool.inputSchema);
+    const action = schema.properties?.action;
+    if (!action || !Array.isArray(action.enum))
+      throw new SafeError("INVALID_CATALOG", "A remote tool used for local actions has no action list.");
+    action.enum = [...action.enum, ...added.map((local) => local.action)];
+    const outlines = added.map((local) => outline(local, catalog)).join("; ");
+    return { ...tool, description: `${tool.description ?? ""} Local: ${outlines}.`.trim(), inputSchema: schema };
+  });
+  return [connectionTool, ...remote];
+}
+
+// src/local.ts
+async function runLocalAction(dependencies, tool, input, options) {
+  const { auth, catalog } = dependencies;
+  if (tool === READ_TOOL && input.action === DESCRIBE_ACTION && catalog.some((entry) => entry.name === READ_TOOL))
+    return describe2(dependencies, input, options);
+  const local = findLocalAction(tool, input.action, catalog);
+  if (!local)
+    return;
+  const args = localArguments(local, input, catalog);
+  if (local.action === "wait_for_workflow")
+    return waitForWorkflow(auth, catalog.find((entry) => entry.name === WORKFLOW_STATUS_TOOL), args, options);
+  if (local.action === "open_workspace")
+    return openPreparedWorkspace(dependencies, args, options);
+  return uploadImage(auth, dependencies.base, parseUploadInput(args), options.signal);
+}
+function localArguments(local, input, catalog) {
+  const context = { tool: local.tool, action: local.action };
+  const extra = Object.keys(input).sort().find((key) => key !== "action" && key !== ARGUMENTS_FIELD);
+  if (extra !== undefined)
+    throw invalidArguments(`/${extra}`, { ...context, problem: "unexpected" });
+  const args = input[ARGUMENTS_FIELD] ?? {};
+  if (typeof args !== "object" || args === null || Array.isArray(args))
+    throw invalidArguments(`/${ARGUMENTS_FIELD}`, { ...context, problem: "type" });
+  validateToolInput({ name: local.tool, inputSchema: local.schema(catalog) }, args, { ...context, prefix: `/${ARGUMENTS_FIELD}` });
+  return args;
+}
+function authority(local) {
+  return local.tool === READ_TOOL ? "read" : "write";
+}
+async function describe2({ auth, catalog }, input, options) {
+  const target = describedAction(input);
+  const locals = availableLocalActions(catalog);
+  const local = locals.find((entry) => entry.action === target);
+  if (local) {
+    const context = { tool: READ_TOOL, action: DESCRIBE_ACTION, problem: "unexpected" };
+    const extra = Object.keys(input).find((key) => key !== "action" && key !== ARGUMENTS_FIELD) ?? Object.keys(input[ARGUMENTS_FIELD]).find((key) => key !== "action");
+    if (extra !== undefined)
+      throw invalidArguments(Object.hasOwn(input, extra) ? `/${extra}` : `/${ARGUMENTS_FIELD}/${extra}`, context);
+    return { data: {
+      tool: local.tool,
+      action: local.action,
+      authority: authority(local),
+      description: local.summary,
+      arguments_schema: local.schema(catalog)
+    } };
   }
+  const read = catalog.find((tool) => tool.name === READ_TOOL);
+  validateToolInput(read, input, { tool: READ_TOOL, action: DESCRIBE_ACTION });
+  const value = await auth.callCreativeTool(READ_TOOL, input, options);
+  if (target !== undefined)
+    return value;
+  const data = value.data;
+  if (!data || !Array.isArray(data.actions))
+    throw new SafeError("INVALID_RESPONSE", "The action listing did not match its contract. Nothing was changed.");
+  return { ...value, data: { ...data, actions: [...data.actions, ...locals.map((entry) => ({
+    tool: entry.tool,
+    action: entry.action,
+    authority: authority(entry),
+    summary: entry.summary
+  }))] } };
+}
+function describedAction(input) {
+  const args = input[ARGUMENTS_FIELD];
+  return args && typeof args === "object" ? args.action : undefined;
 }
 
 // src/server.ts
@@ -43512,7 +43643,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
   const server = new Server({ name: "pixelbank", version: "0.3.0" }, {
     supportedProtocolVersions: ["2026-07-28", "2025-11-25"],
     capabilities: { tools: { listChanged: true } },
-    instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Grouped tools select one operation with `action` and take its arguments in the object with the same name. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator's language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Connect before discovering account tools."
+    instructions: "Use PixelbankStudio for creative operations and workflows. Complex visual editing continues in a prepared PixelbankStudio web workspace. Each tool selects one operation with `action` and takes its arguments in `arguments`. Preserve operation keys, approved costs and workflow provenance. For insufficient credits, show the returned credit-page link in the creator's language. Page opening is not payment or funding confirmation; check current balance and authority when the creator asks to continue. Read exact action arguments with the pixelbank_read action describe. Connect with pixelbank_connection before discovering account tools."
   });
   let catalog = [];
   server.onclose = () => {
@@ -43532,8 +43663,7 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
         throw error;
       catalog = [];
     }
-    const wait = workflowWaitTool(catalog);
-    return { tools: secrets.clean([...localTools, ...visibleRemoteTools(catalog), ...wait ? [wait] : []]), ttlMs: 0, cacheScope: "private" };
+    return { tools: secrets.clean(advertisedTools(catalog)), ttlMs: 0, cacheScope: "private" };
   });
   server.setRequestHandler("tools/call", async (request, extra) => {
     const name = request.params.name, input = request.params.arguments ?? {};
@@ -43543,33 +43673,33 @@ function createServer2(profile = process.env.PIXELBANK_AUTH_SCOPE ?? "standalone
     } };
     let value;
     try {
-      if (name === "pixelbank_connect" || name === "pixelbank_disconnect") {
-        if (Object.keys(input).length)
-          throw new SafeError("INVALID_INPUT", "Connection controls accept no credentials or arguments.");
-        value = name === "pixelbank_connect" ? await auth.connect() : await auth.disconnect();
-        await server.notification({ method: "notifications/tools/list_changed" }).catch(() => {});
-      } else if (name === "pixelbank_upload_image") {
-        value = await uploadImage(auth, base, parseUploadInput(input), extra.mcpReq.signal);
-      } else if (name === "pixelbank_open_workspace") {
-        value = await openPreparedWorkspace({ auth, browser, base, secrets }, input, options);
-      } else if (name === "pixelbank_open_credits_page") {
-        if (Object.keys(input).length)
-          throw new SafeError("INVALID_INPUT", "The credit-page control accepts no URL, payment information or arguments.");
-        value = await openCreditsPage(browser);
+      if (name === CONNECTION_TOOL) {
+        if (Object.keys(input).some((key) => key !== "action") || !CONNECTION_ACTIONS.includes(input.action))
+          throw new SafeError("INVALID_ARGUMENTS", `Nothing was run. ${CONNECTION_TOOL} takes only action (${CONNECTION_ACTIONS.join(", ")}) and accepts no credentials, URLs, payment information or other arguments.`, undefined, { tool: CONNECTION_TOOL, location: Object.keys(input).some((key) => key !== "action") ? "/" : "/action" });
+        if (input.action === "open_credits_page")
+          value = await openCreditsPage(browser);
+        else {
+          value = input.action === "connect" ? await auth.connect() : await auth.disconnect();
+          await server.notification({ method: "notifications/tools/list_changed" }).catch(() => {});
+        }
       } else {
+        const retired = retiredLocalTool(name);
+        if (retired)
+          throw retired;
         if (isInternalTool(name))
           throw refuseInternalTool(name);
         catalog = await discover(extra.mcpReq.signal);
-        if (name === WORKFLOW_WAIT_TOOL) {
-          const status = catalog.find((tool) => tool.name === WORKFLOW_STATUS_TOOL);
-          if (!status)
-            throw new SafeError("UNKNOWN_TOOL", "Workflow status is unavailable in the current catalog.");
-          value = await waitForWorkflow(auth, status, input, options);
-        } else {
-          const tool = catalog.find((tool) => tool.name === name);
+        const local = await runLocalAction({ auth, browser, base, secrets, catalog }, name, input, options);
+        if (local)
+          value = local;
+        else {
+          const tool = visibleRemoteTools(catalog).find((tool) => tool.name === name);
           if (!tool)
-            throw new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated PixelbankStudio catalog.");
-          validateToolInput(tool, input);
+            throw retiredRemoteTool(name, catalog) ?? new SafeError("UNKNOWN_TOOL", "This tool is not available in the authenticated PixelbankStudio catalog.");
+          const actions = actionNames(advertisedTools(catalog).find((entry) => entry.name === name));
+          if (actions.length && !actions.includes(input.action))
+            throw apiError(400, "INVALID_ACTION", undefined, undefined, { tool: name, actions });
+          validateToolInput(tool, input, { tool: name, action: typeof input.action === "string" ? input.action : undefined });
           value = await auth.callCreativeTool(name, input, options);
         }
       }

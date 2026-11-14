@@ -65,7 +65,7 @@ export class CredentialStore {
         onCompromised: () => { compromised = true; },
       });
     } catch { throw new SafeError('AUTH_BUSY', 'The connection lock could not be acquired. Let any ongoing sign-in or connection operation finish, then retry. If contention persists, ask the local operator to inspect storage and process ownership; do not delete lock or credential files.'); }
-    const assertLock = () => { if (compromised) throw new SafeError('AUTH_LOCK_LOST', 'The connection lock was lost; credential updates and any write outcome may be uncertain. Stop creative calls and ask the local operator to resolve competing processes and inspect storage. Preserve lock and credential files; after repair, check existing results and use pixelbank_disconnect for retained cleanup.'); };
+    const assertLock = () => { if (compromised) throw new SafeError('AUTH_LOCK_LOST', 'The connection lock was lost; credential updates and any write outcome may be uncertain. Stop creative calls and ask the local operator to resolve competing processes and inspect storage. Preserve lock and credential files; after repair, check existing results and use pixelbank_connection action disconnect for retained cleanup.'); };
     const transaction: Transaction = {
       load: () => storageIO('read the private connection record', async () => {
         assertLock();

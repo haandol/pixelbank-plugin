@@ -7,25 +7,17 @@ import { validateToolInput } from './input.js';
 
 type Tool = Awaited<ReturnType<Auth['listCreativeTools']>>[number];
 export const WORKFLOW_STATUS_TOOL = 'pixelbank_get_workflow_status';
-export const WORKFLOW_WAIT_TOOL = 'pixelbank_wait_for_workflow';
 const defaultWaitSeconds = 30;
 const maximumWaitSeconds = 60;
 const minimumPollSeconds = 5;
 
-/** The helper inherits run arguments from live discovery; it adds only a bounded local wait. */
-export function workflowWaitTool(tools: Tool[]): Tool | undefined {
-  const status = tools.find(tool => tool.name === WORKFLOW_STATUS_TOOL);
-  if (!status) return undefined;
+/** The wait inherits run arguments from the live status contract; it adds only a bounded local wait. */
+export function waitArgumentsSchema(status: Tool): Tool['inputSchema'] {
   const schema = structuredClone(status.inputSchema);
   if (!schema.properties || !Object.hasOwn(schema.properties, 'run_id') || Object.hasOwn(schema.properties, 'max_wait_seconds'))
     throw new SafeError('INVALID_CATALOG', 'The workflow status contract cannot be used for a bounded wait.');
   schema.properties.max_wait_seconds = { type: 'integer', minimum: 1, maximum: maximumWaitSeconds, default: defaultWaitSeconds };
-  return {
-    name: WORKFLOW_WAIT_TOOL,
-    description: 'Wait briefly for an accepted PixelbankStudio workflow using read-only status checks. Follow the returned poll delay if still running. This never starts, retries or cancels creative processing.',
-    inputSchema: schema,
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  };
+  return schema;
 }
 
 interface PollClock {
@@ -52,9 +44,7 @@ function workflowStatus(envelope: Record<string, unknown>, runId: unknown) {
 /** Polls the same owned run; only reads occur after acceptance, even across transient UI waits. */
 export async function waitForWorkflow(auth: Pick<Auth, 'callCreativeTool'>, statusTool: Tool,
   input: Record<string, unknown>, options: RemoteOptions = {}, timer: PollClock = clock): Promise<Record<string, unknown>> {
-  const wait = workflowWaitTool([statusTool]);
-  if (!wait) throw new SafeError('UNKNOWN_TOOL', 'Workflow status is unavailable in the current catalog.');
-  validateToolInput(wait, input);
+  validateToolInput({ name: WORKFLOW_STATUS_TOOL, inputSchema: waitArgumentsSchema(statusTool) }, input);
   const { max_wait_seconds: requested = defaultWaitSeconds, ...arguments_ } = input;
   validateToolInput(statusTool, arguments_);
   const start = timer.now(), deadline = start + Number(requested) * 1000;

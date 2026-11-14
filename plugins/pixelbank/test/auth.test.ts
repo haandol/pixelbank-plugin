@@ -194,13 +194,13 @@ test('verification recovery guidance resumes the saved flow, while invalid ident
   const m = await mock(); t.after(() => m.close()); m.hooks.afterToken = () => { m.flags.verificationFailure = true; };
   await m.auth.connect(); await m.auth.waitForIdle();
   const error = (await m.auth.connect()).error as { code: string; message: string };
-  assert.equal(error.code, 'OAUTH_VERIFICATION_UNAVAILABLE'); assert.match(error.message, /pixelbank_connect to resume the saved verification flow/);
+  assert.equal(error.code, 'OAUTH_VERIFICATION_UNAVAILABLE'); assert.match(error.message, /pixelbank_connection action connect to resume the saved verification flow/);
   assert.equal(m.counts.exchange, 1); assert.equal(m.counts.register, 0); assert.ok((await m.read())?.recovery);
   m.flags.verificationFailure = false; m.hooks.afterToken = undefined;
   await m.auth.connect(); await m.auth.waitForIdle(); assert.equal(m.counts.exchange, 1); assert.equal(m.counts.register, 1);
   m.flags.providerFailure = true;
   const pending = await m.auth.disconnect();
-  assert.equal(pending.data.status, 'cleanup_pending'); assert.match((pending.data as any).message, /revocation was not confirmed.*pixelbank_disconnect/);
+  assert.equal(pending.data.status, 'cleanup_pending'); assert.match((pending.data as any).message, /revocation was not confirmed.*pixelbank_connection action disconnect/);
   assert.equal((await m.read())?.status, 'disabled');
   m.flags.providerFailure = false; assert.equal((await m.auth.disconnect()).data.status, 'disconnected');
 });
@@ -211,7 +211,7 @@ test('wrong-account and unknown-owner recovery retain cleanup records and descri
   m.flags.subject = 'wrong-account';
   await m.auth.connect(); await m.auth.waitForIdle();
   const mismatch = (await m.auth.connect()).error as { code: string; message: string };
-  assert.equal(mismatch.code, 'ACCOUNT_MISMATCH'); assert.match(mismatch.message, /different account.*pixelbank_disconnect.*same-account/);
+  assert.equal(mismatch.code, 'ACCOUNT_MISMATCH'); assert.match(mismatch.message, /different account.*pixelbank_connection action disconnect.*same-account/);
   assert.equal((await m.read())?.subject, 'test-user'); assert.equal(m.counts.register, 1);
   await m.store.withLock(async tx => { const v = (await tx.load())!; delete v.subject; await tx.save(v); });
   const requests = m.requests.length;
@@ -247,7 +247,7 @@ test('operator-only cleanup failures are not followed by blanket same-account re
   const pending = (await m.auth.disconnect()).data as Record<string, unknown>;
   assert.equal(pending.status, 'cleanup_pending'); assert.equal(pending.reauthenticationRequired, true);
   assert.match(String(pending.message), /stored previous connection ID is invalid.*operator/);
-  assert.doesNotMatch(String(pending.message), /Run pixelbank_connect|Run pixelbank_disconnect|Cleanup needs fresh authorization/);
+  assert.doesNotMatch(String(pending.message), /Run pixelbank_connection action connect|Run pixelbank_connection action disconnect|Cleanup needs fresh authorization/);
   const retained = (await m.read())!;
   assert.equal(retained.connectionId, 'invalid-retained-id'); assert.equal(retained.status, 'disabled');
   assert.equal(retained.cleanup?.backend, true); assert.ok(retained.recovery?.grant.refreshToken);
@@ -278,7 +278,7 @@ test('setup 401 retains unexpired recovery authorization and requires repair bef
   const requests = m.requests.length;
   const error = (await m.auth.connect()).error as { code: string; message: string };
   assert.equal(error.code, 'AUTH_REQUIRED'); assert.match(error.message, /operator to repair.*before retrying/);
-  assert.match(error.message, /After repair, use pixelbank_connect to resume retained setup or recovery/);
+  assert.match(error.message, /After repair, use pixelbank_connection action connect to resume retained setup or recovery/);
   assert.doesNotMatch(error.message, /lets the plugin refresh first|provider-secret|copy tokens/);
   assert.equal(m.requests.length, requests); assert.deepEqual(await m.read(), stored);
   m.flags.connectionUnauthorized = '';
@@ -296,7 +296,7 @@ test('cleanup 401 preserves unexpired credentials and guides repaired authorizat
   const pending = (await m.auth.disconnect()).data as Record<string, unknown>;
   assert.equal(pending.status, 'cleanup_pending'); assert.equal(pending.reauthenticationRequired, false);
   assert.match(String(pending.message), /operator to repair.*before retrying/);
-  assert.match(String(pending.message), /After repair.*pixelbank_disconnect to finish cleanup/);
+  assert.match(String(pending.message), /After repair.*pixelbank_connection action disconnect to finish cleanup/);
   assert.doesNotMatch(String(pending.message), /lets the plugin refresh first|provider-secret|copy tokens/);
   const retained = (await m.read())!;
   assert.equal(retained.status, 'disabled'); assert.equal(retained.recovery, undefined);
@@ -339,8 +339,8 @@ test('ordinary refresh verification outage disables learning with cleanup guidan
   const original = (await m.read())!; const before = m.requests.length; m.flags.verificationFailure = true;
   await assert.rejects(m.auth.request('POST', '/expressions', { phrase: 'take a break', idempotencyKey: 'retained-key' }), error => {
     assert.equal((error as any).code, 'OAUTH_VERIFICATION_UNAVAILABLE');
-    assert.match((error as Error).message, /during connection refresh.*restored.*pixelbank_disconnect to finish retained cleanup/);
-    assert.match((error as Error).message, /reauthenticationRequired.*pixelbank_connect for same-account/);
+    assert.match((error as Error).message, /during connection refresh.*restored.*pixelbank_connection action disconnect to finish retained cleanup/);
+    assert.match((error as Error).message, /reauthenticationRequired.*pixelbank_connection action connect for same-account/);
     assert.doesNotMatch((error as Error).message, /resume the saved verification flow/); return true;
   });
   const retained = (await m.read())!;

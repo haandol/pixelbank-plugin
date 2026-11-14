@@ -10,7 +10,7 @@ import { decodeJwt } from 'jose';
 import { checkRequestBudget, reserveRequest } from './traffic.js';
 import { callRemoteTool, listRemoteTools, type RemoteOptions } from './remote.js';
 
-export const authenticationPending = () => ({ data: { status: 'authentication_pending', message: 'Finish browser sign-in, then run pixelbank_connect to check progress; use pixelbank_disconnect to cancel.' } });
+export const authenticationPending = () => ({ data: { status: 'authentication_pending', message: 'Finish browser sign-in, then run pixelbank_connection action connect to check progress; use pixelbank_connection action disconnect to cancel.' } });
 const fullCleanup = () => ({ backend: true, provider: true });
 const hasCleanup = (g: Grant) => !!(g.cleanup?.backend || g.cleanup?.provider);
 const needsLogin = (g: Grant) => !!g.cleanup?.backend && (!g.accessToken || g.refreshInvalid || (g.refreshExpiresAt ?? Infinity) <= Date.now() || (!g.refreshToken && g.expiresAt <= Date.now()));
@@ -41,7 +41,7 @@ export class Connection {
       }
     }
     if (value && this.grants(value).some(hasCleanup) && !this.grants(value).some(needsLogin)) {
-      throw new SafeError('CLEANUP_REQUIRED', 'The previous connection still needs cleanup. Run pixelbank_disconnect before pixelbank_connect. If cleanup reports reauthenticationRequired, connect with the same account to recover it; otherwise wait for cleanup to complete before signing in.');
+      throw new SafeError('CLEANUP_REQUIRED', 'The previous connection still needs cleanup. Run pixelbank_connection action disconnect before pixelbank_connection action connect. If cleanup reports reauthenticationRequired, connect with the same account to recover it; otherwise wait for cleanup to complete before signing in.');
     }
     if (value && this.grants(value).some(hasCleanup) && !value.subject) {
       throw new SafeError('OWNER_UNKNOWN', 'The previous connection has no verified owner. Ask an operator to reconcile the retained cleanup records before reconnecting; do not choose a replacement account, copy tokens, or delete credential or lock files.');
@@ -90,19 +90,19 @@ export class Connection {
       backendPending: grants.some(g => g.cleanup?.backend), providerPending: grants.some(g => g.cleanup?.provider), reauthenticationRequired,
       message: [
         failure ? safeError(failure).error.message : reauthenticationRequired
-          ? 'Cleanup needs fresh authorization. Run pixelbank_connect and have the creator sign in to the same account to recover previous connection cleanup.'
+          ? 'Cleanup needs fresh authorization. Run pixelbank_connection action connect and have the creator sign in to the same account to recover previous connection cleanup.'
           : value.recovery && !value.recovery.discard
-            ? 'Recovery is saved. Run pixelbank_connect to resume it after the reported problem is resolved, or pixelbank_disconnect to cancel and finish cleanup.'
-            : 'Connection cleanup is pending. Run pixelbank_disconnect after the reported problem is resolved; if cleanup still cannot proceed, ask the operator to reconcile the retained records.',
+            ? 'Recovery is saved. Run pixelbank_connection action connect to resume it after the reported problem is resolved, or pixelbank_connection action disconnect to cancel and finish cleanup.'
+            : 'Connection cleanup is pending. Run pixelbank_connection action disconnect after the reported problem is resolved; if cleanup still cannot proceed, ask the operator to reconcile the retained records.',
         'Creative access remains disabled. Preserve credential and lock files; do not claim complete revocation until disconnected.',
       ].filter(Boolean).join(' ') } };
   }
   private async refresh(root: Credentials, grant: Grant) {
     if ((grant.refreshExpiresAt ?? Infinity) <= Date.now()) {
       grant.refreshInvalid = true; root.status = 'disabled'; root.cleanup ??= fullCleanup(); await this.tx.save(root);
-      throw new SafeError('OAUTH_INVALID_GRANT', 'The original one-day authorization has expired. Use pixelbank_connect for same-account browser recovery and retained cleanup.');
+      throw new SafeError('OAUTH_INVALID_GRANT', 'The original one-day authorization has expired. Use pixelbank_connection action connect for same-account browser recovery and retained cleanup.');
     }
-    if (!grant.refreshToken || grant.refreshInvalid) throw new SafeError('OAUTH_INVALID_GRANT', 'The stored connection has no usable refresh authorization. Run pixelbank_connect and have the creator sign in to the same account to recover pending cleanup before creative work resumes.');
+    if (!grant.refreshToken || grant.refreshInvalid) throw new SafeError('OAUTH_INVALID_GRANT', 'The stored connection has no usable refresh authorization. Run pixelbank_connection action connect and have the creator sign in to the same account to recover pending cleanup before creative work resumes.');
     const previousStatus = root.status;
     const previousCleanup = root.cleanup;
     root.status = 'pending'; root.cleanup ??= fullCleanup(); await this.tx.save(root);
@@ -118,14 +118,14 @@ export class Connection {
       if (error instanceof SafeError && error.code === 'OAUTH_INVALID_GRANT') grant.refreshInvalid = true;
       root.status = 'disabled'; await this.tx.save(root);
       if (error instanceof SafeError && error.code === 'OAUTH_VERIFICATION_UNAVAILABLE') {
-        throw new SafeError(error.code, 'Account identity verification is temporarily unavailable during connection refresh. After verification service access is restored, run pixelbank_disconnect to finish retained cleanup. If it reports reauthenticationRequired, use pixelbank_connect for same-account browser recovery. Preserve cleanup records; do not bypass verification or repeat creative operations.');
+        throw new SafeError(error.code, 'Account identity verification is temporarily unavailable during connection refresh. After verification service access is restored, run pixelbank_connection action disconnect to finish retained cleanup. If it reports reauthenticationRequired, use pixelbank_connection action connect for same-account browser recovery. Preserve cleanup records; do not bypass verification or repeat creative operations.');
       }
       throw error;
     }
   }
   private async ensureAccess(root: Credentials, grant: Grant) {
     if (grant.expiresAt <= Date.now() + 30_000) await this.refresh(root, grant);
-    if (!grant.accessToken || grant.expiresAt <= Date.now()) throw new SafeError('OAUTH_INVALID_GRANT', 'The connection has no usable access authorization after refresh. Run pixelbank_connect for same-account recovery and complete pending cleanup before resuming creative work.');
+    if (!grant.accessToken || grant.expiresAt <= Date.now()) throw new SafeError('OAUTH_INVALID_GRANT', 'The connection has no usable access authorization after refresh. Run pixelbank_connection action connect for same-account recovery and complete pending cleanup before resuming creative work.');
   }
   private async verifyCandidate(value: Credentials) {
     const candidate = value.recovery!;
@@ -147,7 +147,7 @@ export class Connection {
   private confirmRevoked(result: unknown, grant: Grant) {
     const data = object(result);
     if (data.status !== 'revoked' || typeof data.connectionId !== 'string' || !data.connectionId ||
-        (grant.connectionId && data.connectionId !== grant.connectionId)) throw new SafeError('INVALID_CONNECTION', 'PixelbankStudio did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_disconnect after service recovery; ask the PixelbankStudio operator if confirmation still fails. Do not claim the connection is revoked.');
+        (grant.connectionId && data.connectionId !== grant.connectionId)) throw new SafeError('INVALID_CONNECTION', 'PixelbankStudio did not confirm revocation of the expected connection. Keep cleanup records and run pixelbank_connection action disconnect after service recovery; ask the PixelbankStudio operator if confirmation still fails. Do not claim the connection is revoked.');
   }
   private async previousConnectionId(root: Credentials, grant: Grant) {
     if (grant.connectionId !== undefined) {
@@ -185,7 +185,7 @@ export class Connection {
   }
   private async revokeProvider(root: Credentials, grant: Grant) {
     const cleanup = grant.cleanup ??= fullCleanup();
-    if (cleanup.backend) throw new SafeError('CLEANUP_REQUIRED', 'PixelbankStudio connection revocation is still pending. Run pixelbank_disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connect with the same account. Sign-in cleanup can finish only after PixelbankStudio confirms revocation.');
+    if (cleanup.backend) throw new SafeError('CLEANUP_REQUIRED', 'PixelbankStudio connection revocation is still pending. Run pixelbank_connection action disconnect after service recovery; if it reports reauthenticationRequired, use pixelbank_connection action connect with the same account. Sign-in cleanup can finish only after PixelbankStudio confirms revocation.');
     delete grant.accessToken; grant.expiresAt = 0; await this.tx.save(root);
     if (cleanup.provider) {
       if (grant.refreshToken) await revoke(grant.oauth, grant.refreshToken);
@@ -273,7 +273,7 @@ export class Connection {
   }
   private async authenticated<T>(input: unknown, operation: (token: () => Promise<string>) => Promise<T>): Promise<T> {
     const value = await this.tx.load();
-    if (!value || value.status !== 'active') throw new SafeError('AUTH_REQUIRED', 'No active local connection is available. Run pixelbank_connect and complete or check browser sign-in before using creative tools. If cleanup is required, run pixelbank_disconnect; use same-account recovery when requested.');
+    if (!value || value.status !== 'active') throw new SafeError('AUTH_REQUIRED', 'No active local connection is available. Run pixelbank_connection action connect and complete or check browser sign-in before using creative tools. If cleanup is required, run pixelbank_connection action disconnect; use same-account recovery when requested.');
     filterExternalInput(input, this.secrets);
     JSON.stringify(input, (key, item) => { filterExternalInput(key, this.secrets); return item; });
     const token = async () => {
@@ -294,7 +294,7 @@ export class Connection {
       }
       if (error instanceof SafeError && error.code === 'AUTH_REQUIRED') {
         value.expiresAt = 0; await this.tx.save(value);
-        throw new SafeError(error.code, 'PixelbankStudio rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connect recovery instructions. Never copy tokens or bypass sign-in.');
+        throw new SafeError(error.code, 'PixelbankStudio rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account pixelbank_connection action connect recovery instructions. Never copy tokens or bypass sign-in.');
       }
       if (error instanceof SafeError && error.code === 'CONNECTION_INACTIVE') {
         value.status = 'disabled'; value.cleanup = fullCleanup(); await this.tx.save(value); await this.cleanup(value);

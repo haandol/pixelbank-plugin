@@ -7,6 +7,8 @@ import { mock } from './helpers.js';
 import { uploadImage, readSelectedImage, validateTicket } from '../src/upload.js';
 import { DEFAULT_BASE } from '../src/config.js';
 import { Secrets } from '../src/errors.js';
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
+import { createServer } from '../src/server.js';
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=', 'base64');
 const request = { purpose: 'workflow-input', content_type: 'image/png', size_bytes: png.length, width: 1, height: 1, checksum_sha256: createHash('sha256').update(png).digest('base64') };
@@ -141,4 +143,19 @@ test('credential and signed upload URL redaction covers nested values and keys',
   const secrets = new Secrets(); secrets.add('opaque-test-refresh');
   const clean = JSON.stringify(secrets.clean({ upload_url: ticket().upload_url, nested: ['opaque-test-refresh', `Storage ${ticket().upload_url}`, { refreshToken: 'new', Authorization: 'Bearer abc' }] }));
   assert.ok(!clean.includes('X-Amz-')); assert.ok(!clean.includes('opaque-test-refresh')); assert.ok(!clean.includes('Bearer abc'));
+});
+
+test('the edit tool upload_image action runs the local upload and never forwards a remote upload_image call', async t => {
+  const f = await fixture(t);
+  f.m.rpc.tools = [{ name: 'pixelbank_edit', inputSchema: { type: 'object', additionalProperties: false, required: ['action'],
+    properties: { action: { type: 'string', enum: ['update_asset_tags'] }, arguments: { type: 'object' } } } },
+  { name: 'pixelbank_issue_upload', inputSchema: { type: 'object' } }, { name: 'pixelbank_save_source', inputSchema: { type: 'object' } }];
+  const runtime = createServer('fixture', { auth: f.m.auth, browser: async () => {} }); t.after(() => runtime.stop());
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await runtime.server.connect(serverTransport);
+  const client = new Client({ name: 'test', version: '1' }); t.after(() => client.close()); await client.connect(clientTransport);
+  const result = await client.callTool({ name: 'pixelbank_edit', arguments: { action: 'upload_image', arguments: { file_path: f.path, purpose: 'workflow-input', save_source: true } } });
+  assert.deepEqual(result.structuredContent, { data: { asset: { namespace: 'workflow', filename: 'persistent.png' } } });
+  assert.deepEqual(f.uploads.map(upload => upload.bytes), [png]);
+  assert.deepEqual(f.m.rpcCalls().map(r => (r.body as any).params.name), ['pixelbank_issue_upload', 'pixelbank_save_source']);
 });

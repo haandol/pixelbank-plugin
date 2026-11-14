@@ -1,18 +1,28 @@
 import { AjvJsonSchemaValidator } from '@modelcontextprotocol/server/validators/ajv';
 import type { JsonSchemaType } from '@modelcontextprotocol/server';
 import type { Auth } from './auth.js';
-import { SafeError } from './errors.js';
+import { SafeError, invalidArgumentsMessage } from './errors.js';
 
 type Tool = Awaited<ReturnType<Auth['listCreativeTools']>>[number];
+export interface ArgumentContext { tool?: string; action?: string; prefix?: string; problem?: string }
 
-/** Validate the current server schema without coercing, defaulting or disclosing supplied values. */
-export function validateToolInput(tool: Tool, input: Record<string, unknown>): void {
-  let valid: boolean;
+/** Validate the current schema without coercing, defaulting or disclosing supplied values. */
+export function validateToolInput(tool: Tool, input: Record<string, unknown>, context: ArgumentContext = {}): void {
+  let result: { valid: boolean; errorMessage?: string };
   try {
     const validator = new AjvJsonSchemaValidator();
-    valid = validator.getValidator(tool.inputSchema as JsonSchemaType)(input).valid;
+    result = validator.getValidator(tool.inputSchema as JsonSchemaType)(input);
   } catch {
     throw new SafeError('INVALID_CATALOG', 'The current tool schema could not be validated. Refresh the service catalog.');
   }
-  if (!valid) throw new SafeError('INVALID_INPUT', 'The input does not match the current tool contract. Check required fields, types and allowed values.');
+  if (!result.valid) throw invalidArguments(`${context.prefix ?? ''}${firstLocation(result.errorMessage)}`, context);
+}
+
+export function invalidArguments(location: string, { tool, action, problem }: ArgumentContext = {}): SafeError {
+  return new SafeError('INVALID_ARGUMENTS', invalidArgumentsMessage, undefined, { location: location || '/', tool, action, problem });
+}
+
+// The validator reports locations as data/<pointer>; only the first pointer is kept and sanitized by SafeError.
+function firstLocation(message = ''): string {
+  return /^data(\/\S*?)?(?=[\s,]|$)/.exec(message)?.[1] ?? '';
 }
